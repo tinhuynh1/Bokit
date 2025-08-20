@@ -1,0 +1,5 @@
+{
+    "login_success": "Login successful",
+    "login_failed": "Invalid email or password",
+    "token_expired": "Your session has expired. Please login again"
+  }

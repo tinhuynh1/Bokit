@@ -1,0 +1,41 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: booking-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: booking_app
+      POSTGRES_PASSWORD: "X4pV7_qM9%tN1wK6@rG8jM2Z"
+      POSTGRES_DB: booking
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: booking-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "StrongPass!123"]
+    volumes:
+      - redisdata:/data
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.90.0
+    container_name: otel-collector
+    restart: always
+    ports:
+      - "4317:4317"
+      - "55681:55681"
+      - "8888:8888"
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    command: ["--config=/etc/otel-collector-config.yaml"]
+
+volumes:
+  pgdata:
+  redisdata:

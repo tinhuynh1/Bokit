@@ -1,0 +1,16 @@
+# Ignore sensitive configuration files
+*.secret.yaml
+*.prod.yaml
+*.uat.yaml
+
+# Ignore environment-specific secrets
+secrets/
+.env
+
+# Ignore backup files
+*.bak
+*.backup
+
+# Ignore temporary files
+*.tmp
+*.temp 

@@ -1,0 +1,5 @@
+{
+    "login_success": "Đăng nhập thành công",
+    "login_failed": "Sai tài khoản hoặc mật khẩu",
+    "token_expired": "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại"
+  }
