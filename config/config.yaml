@@ -24,6 +24,10 @@ redis:
   pool_size: 10
   min_idle_conns: 5
 
+nats:
+  brokers:
+    - "nats://localhost:4222"
+
 server:
   port: 8080
   host: "0.0.0.0"

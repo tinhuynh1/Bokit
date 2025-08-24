@@ -10,6 +10,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to bootstrap app: %v", err)
 	}
+	defer app.Cleanup()
 
 	if err := app.Run(); err != nil {
 		log.Fatalf("failed to run server: %v", err)

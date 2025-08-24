@@ -10,11 +10,6 @@ const (
 	BookingStatusCancelled BookingStatus = "CANCELLED"
 )
 
-type RefundBooking struct {
-	EventID    int     `gorm:"column:event_id;not null"`
-	TotalPrice float64 `gorm:"column:total_price;not null"`
-}
-
 type TicketBooking struct {
 	ID         int           `gorm:"primaryKey"`
 	EventID    int           `gorm:"column:event_id;not null"`

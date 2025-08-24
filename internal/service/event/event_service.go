@@ -5,7 +5,6 @@ import (
 	"booking-svc/internal/domain"
 	"booking-svc/internal/dto"
 	"booking-svc/internal/infra/database"
-	"booking-svc/internal/infra/nats"
 	"context"
 	"errors"
 	"time"
@@ -17,15 +16,16 @@ type EventService struct {
 	logger      *zap.Logger
 	eventRepo   domain.EventRepository
 	bookingRepo domain.TicketBookingRepository
-	nats        *nats.Publisher
 }
 
 func NewEventService(logger *zap.Logger,
 	repo domain.EventRepository,
 	bookingRepo domain.TicketBookingRepository,
-	nats *nats.Publisher,
 ) *EventService {
-	return &EventService{logger: logger, eventRepo: repo, bookingRepo: bookingRepo, nats: nats}
+	return &EventService{
+		logger:      logger,
+		eventRepo:   repo,
+		bookingRepo: bookingRepo}
 }
 
 func (s *EventService) ListEvents(ctx context.Context, page int, pageSize int, from string, to string) ([]dto.ListEventResponse, response.Paging, error) {
@@ -147,7 +147,7 @@ func (s *EventService) BookTicket(ctx context.Context, req dto.BookingEventReque
 
 func (s *EventService) CancelBooking() error {
 	//acqire lock
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 450*time.Second)
 	defer cancel()
 
 	//acquire lock prevent multiple job cancel booking run at the same time
@@ -172,11 +172,11 @@ func (s *EventService) CancelBooking() error {
 
 	var eventIds []int
 	var bookingIds []int
-	mapIdBooking := make(map[int]domain.TicketBooking)
+	mapIdBooking := make(map[int]int) //map event id to quantity
 	for _, booking := range bookings {
 		bookingIds = append(bookingIds, booking.ID)
 		eventIds = append(eventIds, booking.EventID)
-		mapIdBooking[booking.EventID] = booking
+		mapIdBooking[booking.EventID] += booking.Quantity
 	}
 	err = s.bookingRepo.UpdateStatusByIds(ctx, tx, bookingIds, string(domain.BookingStatusCancelled))
 	if err != nil {
@@ -190,11 +190,9 @@ func (s *EventService) CancelBooking() error {
 		return err
 	}
 
-	for _, event := range events {
-		if booking, ok := mapIdBooking[event.ID]; ok {
-			event.AvailableTickets += booking.Quantity
-			event.SoldTickets -= booking.Quantity
-		}
+	for i, event := range events {
+		events[i].AvailableTickets += mapIdBooking[event.ID]
+		events[i].SoldTickets -= mapIdBooking[event.ID]
 	}
 
 	err = s.eventRepo.UpdateEventsWithTx(ctx, tx, events)

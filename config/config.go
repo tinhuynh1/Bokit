@@ -18,7 +18,7 @@ type Config struct {
 	Logging  LoggingConfig  `mapstructure:"logging"`
 	Auth     AuthConfig     `mapstructure:"auth"`
 	Env      string         `mapstructure:"env"`
-	Kafka    KafkaConfig    `mapstructure:"kafka"`
+	NATS     NATSConfig     `mapstructure:"nats"`
 }
 
 // JWTConfig holds JWT-related configuration
@@ -56,7 +56,7 @@ type RedisConfig struct {
 	MinIdleConns int    `mapstructure:"min_idle_conns"`
 }
 
-type KafkaConfig struct {
+type NATSConfig struct {
 	Brokers []string `mapstructure:"brokers"`
 }
 

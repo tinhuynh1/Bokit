@@ -5,14 +5,13 @@ import (
 	"booking-svc/internal/handler"
 	"booking-svc/internal/infra/cache"
 	"booking-svc/internal/infra/database"
-	"booking-svc/internal/infra/nats"
+	"booking-svc/internal/infra/message_broker"
 	"booking-svc/internal/job"
 	"booking-svc/internal/repository"
 	"booking-svc/internal/router"
 	"booking-svc/internal/service/event"
 	"booking-svc/internal/service/payment"
 	"booking-svc/pkg/logger"
-	telemetry "booking-svc/pkg/tracer"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -26,8 +25,6 @@ type App struct {
 }
 
 func NewApp() (*App, error) {
-	shutdown := telemetry.InitTracer()
-	defer shutdown()
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		panic(err)
@@ -51,18 +48,25 @@ func NewApp() (*App, error) {
 	bookingRepo := repository.NewTicketBookingRepo(db, rdb)
 
 	// Initialize NATS Publisher
-	natsPublisher, err := nats.NewPublisher("nats://localhost:4222")
+	natsPublisher, err := message_broker.NewPublisher(cfg.NATS.Brokers[0])
 	if err != nil {
 		logger.L.Error("failed to create nats publisher", zap.Error(err))
 		return nil, err
 	}
-	defer natsPublisher.Close()
+
+	natsConsumer, err := message_broker.NewConsumer(cfg.NATS.Brokers[0])
+	if err != nil {
+		logger.L.Error("failed to create nats consumer", zap.Error(err))
+		return nil, err
+	}
 
 	// Update EventService to use publisher
-	eventSvc := event.NewEventService(logger.L, eventRepo, bookingRepo, natsPublisher)
+	eventSvc := event.NewEventService(logger.L, eventRepo, bookingRepo)
+	paymentSvc := payment.NewPaymentService(logger.L, bookingRepo, natsPublisher, natsConsumer)
 
 	//event handler
 	eventHandler := handler.NewEventHandler(eventSvc, logger.L)
+	paymentHandler := handler.NewPaymentHandler(eventSvc, paymentSvc, logger.L)
 
 	//cron job
 	cronJob := job.NewCancelBookingJob(eventSvc, logger.L)
@@ -75,15 +79,9 @@ func NewApp() (*App, error) {
 	engine.Use(gin.Recovery())
 	engine.Use(otelgin.Middleware("booking-svc"))
 
-	kafkaClient, err := nats.NewPublisher(cfg.Kafka.Brokers[0])
-	if err != nil {
-		logger.L.Error("failed to create nats publisher", zap.Error(err))
-		return nil, err
-	}
-	paymentSvc := payment.NewPaymentService(logger.L, kafkaClient)
-	paymentHandler := handler.NewPaymentHandler(eventSvc, paymentSvc, logger.L)
-
 	router.SetupRoutes(engine, eventHandler, paymentHandler)
+
+	go paymentSvc.StartPaymentConsumer()
 	return &App{
 		engine: engine,
 		cfg:    cfg,
@@ -93,4 +91,11 @@ func NewApp() (*App, error) {
 func (a *App) Run() error {
 	addr := fmt.Sprintf("%s:%d", a.cfg.Server.Host, a.cfg.Server.Port)
 	return a.engine.Run(addr)
+}
+
+func (a *App) Cleanup() {
+	database.Close()
+	cache.Close()
+	message_broker.ClosePublisher()
+	message_broker.CloseConsumer()
 }

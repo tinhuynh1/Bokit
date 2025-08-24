@@ -24,9 +24,9 @@ redis:
   pool_size: 5
   min_idle_conns: 2
 
-kafka:
+nats:
   brokers:
-    - "localhost:9092"
+    - "nats://localhost:4222"
 
 server:
   port: 8080

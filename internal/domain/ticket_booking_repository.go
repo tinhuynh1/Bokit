@@ -18,4 +18,5 @@ type TicketBookingRepository interface {
 	GetExpiredBooking(ctx context.Context, tx *gorm.DB) ([]TicketBooking, error)
 	GetBookingsByEventIds(ctx context.Context, eventIds []int) ([]TicketBooking, error)
 	GetBookingById(ctx context.Context, bookingID int) (TicketBooking, error)
+	//PaymentProcessingExists(ctx context.Context, transactionID string) (bool, error)
 }

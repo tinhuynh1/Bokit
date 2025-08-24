@@ -1,4 +1,4 @@
-package nats
+package message_broker
 
 import (
 	"encoding/json"
@@ -12,6 +12,8 @@ type Publisher struct {
 	nc *nats.Conn
 }
 
+var PublisherConn *Publisher
+
 type Message struct {
 	Type      string      `json:"type"`
 	Data      interface{} `json:"data"`
@@ -24,8 +26,8 @@ func NewPublisher(url string) (*Publisher, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to NATS: %w", err)
 	}
-
-	return &Publisher{nc: nc}, nil
+	PublisherConn = &Publisher{nc: nc}
+	return PublisherConn, nil
 }
 
 func (p *Publisher) Publish(subject string, messageType string, data interface{}) error {
@@ -49,6 +51,8 @@ func (p *Publisher) Publish(subject string, messageType string, data interface{}
 	return nil
 }
 
-func (p *Publisher) Close() {
-	p.nc.Close()
+func ClosePublisher() {
+	if PublisherConn != nil {
+		PublisherConn.nc.Close()
+	}
 }

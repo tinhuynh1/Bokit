@@ -30,17 +30,6 @@ services:
       - "8222:8222"
     command: ["-js", "-m", "8222"]
 
-  nats-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: nats-ui
-    depends_on:
-      - nats
-    ports:
-      - "8080:8080"
-    environment:
-      KAFKA_CLUSTERS_0_NAME: nats
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: nats:4222
-
 volumes:
   pgdata:
   redisdata:

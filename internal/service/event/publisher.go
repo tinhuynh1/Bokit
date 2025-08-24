@@ -2,14 +2,14 @@ package event
 
 import (
 	"booking-svc/internal/domain"
-	"booking-svc/internal/infra/nats"
+	"booking-svc/internal/infra/message_broker"
 )
 
 type Publisher struct {
-	nats *nats.Publisher
+	nats *message_broker.Publisher
 }
 
-func NewPublisher(nats *nats.Publisher) *Publisher {
+func NewPublisher(nats *message_broker.Publisher) *Publisher {
 	return &Publisher{nats: nats}
 }
 

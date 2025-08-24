@@ -78,6 +78,12 @@ func (r *ticketBookingRepo) GetBookingsByEventIds(ctx context.Context, eventIds 
 
 func (r *ticketBookingRepo) GetBookingById(ctx context.Context, bookingID int) (domain.TicketBooking, error) {
 	var booking domain.TicketBooking
-	err := r.db.Model(&domain.TicketBooking{}).Where("id = ?", bookingID).First(&booking).Error
+	err := r.db.Model(&domain.TicketBooking{}).
+		Where("id = ?", bookingID).
+		First(&booking).Error
 	return booking, err
 }
+
+// func (r *ticketBookingRepo) PaymentProcessingExists(ctx context.Context, transactionID string) (bool, error) {
+// 	return r.cache.Get(ctx, transactionID).Result()
+// }

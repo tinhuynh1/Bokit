@@ -8,6 +8,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+var Redis *redis.Client
+
 func NewRedis(cfg *config.RedisConfig) (*redis.Client, error) {
 	password, err := base64.StdEncoding.DecodeString(cfg.Password)
 	if err != nil {
@@ -23,5 +25,12 @@ func NewRedis(cfg *config.RedisConfig) (*redis.Client, error) {
 	if err := rdb.Ping(context.Background()).Err(); err != nil {
 		return nil, err
 	}
-	return rdb, nil
+	Redis = rdb
+	return Redis, nil
+}
+
+func Close() {
+	if Redis != nil {
+		Redis.Close()
+	}
 }

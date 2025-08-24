@@ -2,10 +2,12 @@ package database
 
 import (
 	"booking-svc/config"
+	"booking-svc/pkg/logger"
 	"database/sql"
 	"fmt"
 
 	_ "github.com/lib/pq"
+	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -34,6 +36,17 @@ func NewPostgres(cfg *config.PostgresConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("gorm.Open failed: %w", err)
 	}
 	return PostgreSql, nil
+}
+
+func Close() {
+	if PostgreSql != nil {
+		db, err := PostgreSql.DB()
+		if err != nil {
+			logger.L.Error("failed to get db", zap.Error(err))
+			return
+		}
+		db.Close()
+	}
 }
 
 func BeginTxn() *gorm.DB {
