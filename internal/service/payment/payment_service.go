@@ -75,8 +75,6 @@ func (s *PaymentService) StartPaymentConsumer() error {
 	err := s.consumer.Subscribe("payment_confirm", func(msg *nats.Msg) {
 		bookingID := string(msg.Data)
 		s.logger.Info("Simulate payment processing", zap.String("booking_id", bookingID))
-
-		// ✅ Xử lý message
 		msg.Ack()
 	})
 
