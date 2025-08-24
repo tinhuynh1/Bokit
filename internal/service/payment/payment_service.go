@@ -34,11 +34,11 @@ func NewPaymentService(
 }
 
 func (s *PaymentService) ConfirmPayment(ctx context.Context, req dto.PaymentConfirmRequest) error {
-	exists, err := s.bookingRepo.IsExistsBookingProcessing(ctx, req.BookingID)
+	ok, err := s.bookingRepo.IsExistsBookingProcessing(ctx, req.BookingID)
 	if err != nil {
 		return fmt.Errorf("failed to check idempotence: %w", err)
 	}
-	if exists {
+	if !ok {
 		s.logger.Info("booking is already processing", zap.Int("booking_id", req.BookingID))
 		return nil
 	}

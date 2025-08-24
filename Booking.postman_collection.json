@@ -1,0 +1,347 @@
+{
+	"info": {
+		"_postman_id": "a1e10305-96b7-4cfa-ac77-c9fdb4021dc7",
+		"name": "Booking",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "27781696"
+	},
+	"item": [
+		{
+			"name": "Book event",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSb2xlIjoiYWRtaW4iLCJUb2tlbklEIjoiN2JkYmZiNzUtNWIyYy00YzJlLWI1ZTgtMjE4MGMxMDJkMmNlIiwiZXhwIjoxNzU3MzUwMTkxfQ.JOMEnVtNWjOhAMji1J8biv6QOGYbQovpeSrmn1Dpn1Q",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "\n{\n  \"email\": \"tin@gmail.com\",\n  \"quantity\": 20\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8081/events/2/booking",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8081",
+					"path": [
+						"events",
+						"2",
+						"booking"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "list event",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSb2xlIjoiYWRtaW4iLCJUb2tlbklEIjoiN2JkYmZiNzUtNWIyYy00YzJlLWI1ZTgtMjE4MGMxMDJkMmNlIiwiZXhwIjoxNzU3MzUwMTkxfQ.JOMEnVtNWjOhAMji1J8biv6QOGYbQovpeSrmn1Dpn1Q",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8081/events?page1&page_size=10",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8081",
+					"path": [
+						"events"
+					],
+					"query": [
+						{
+							"key": "page1",
+							"value": null
+						},
+						{
+							"key": "page_size",
+							"value": "10"
+						}
+					]
+				},
+				"description": "Generated from cURL: curl --location 'http://localhost:8080/events/booking' \\\n--header 'Content-Type: application/json' \\\n--data-raw '\n{\n  \"event_id\": 1,\n  \"email\": \"hnqtin@gmail.com\",\n  \"quantity\": 450\n}'"
+			},
+			"response": []
+		},
+		{
+			"name": "stats",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSb2xlIjoiYWRtaW4iLCJUb2tlbklEIjoiN2JkYmZiNzUtNWIyYy00YzJlLWI1ZTgtMjE4MGMxMDJkMmNlIiwiZXhwIjoxNzU3MzUwMTkxfQ.JOMEnVtNWjOhAMji1J8biv6QOGYbQovpeSrmn1Dpn1Q",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8081/events/stats",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8081",
+					"path": [
+						"events",
+						"stats"
+					]
+				},
+				"description": "Generated from cURL: curl --location 'http://localhost:8080/events/booking' \\\n--header 'Content-Type: application/json' \\\n--data-raw '\n{\n  \"event_id\": 1,\n  \"email\": \"hnqtin@gmail.com\",\n  \"quantity\": 450\n}'"
+			},
+			"response": []
+		},
+		{
+			"name": "delete event by id",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSb2xlIjoiYWRtaW4iLCJUb2tlbklEIjoiNzk1NWJmYjQtOTdkZS00OWIwLTkxYzEtYWIxM2NmZjQyMzcxIiwiZXhwIjoxNzU2MDUzMzU4fQ.sb5hyclxyAdkTqok3Xyqbqo-EZBwnxoDU2ZUNCk91xM",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/events/8",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"events",
+						"8"
+					],
+					"query": [
+						{
+							"key": "Authorization",
+							"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSb2xlIjoiYWRtaW4iLCJUb2tlbklEIjoiNzk1NWJmYjQtOTdkZS00OWIwLTkxYzEtYWIxM2NmZjQyMzcxIiwiZXhwIjoxNzU2MDUzMzU4fQ.sb5hyclxyAdkTqok3Xyqbqo-EZBwnxoDU2ZUNCk91xM",
+							"disabled": true
+						}
+					]
+				},
+				"description": "Generated from cURL: curl --location 'http://localhost:8080/events/booking' \\\n--header 'Content-Type: application/json' \\\n--data-raw '\n{\n  \"event_id\": 1,\n  \"email\": \"hnqtin@gmail.com\",\n  \"quantity\": 450\n}'"
+			},
+			"response": []
+		},
+		{
+			"name": "create event",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSb2xlIjoiYWRtaW4iLCJUb2tlbklEIjoiNzk1NWJmYjQtOTdkZS00OWIwLTkxYzEtYWIxM2NmZjQyMzcxIiwiZXhwIjoxNzU2MDUzMzU4fQ.sb5hyclxyAdkTqok3Xyqbqo-EZBwnxoDU2ZUNCk91xM",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"requestId\" : \"123123\",\n  \"name\": \"Art Exhibition Opening\",\n  \"description\": \"Triển lãm nghệ thuật đương đại với các tác phẩm từ 20 quốc gia\",\n  \"date_time\": \"2025-12-12T18:00:00Z\",\n  \"ticket_price\": 80000.0,\n  \"available_tickets\": 300\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/events",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"events"
+					]
+				},
+				"description": "Generated from cURL: curl --location 'http://localhost:8080/events/booking' \\\n--header 'Content-Type: application/json' \\\n--data-raw '\n{\n  \"event_id\": 1,\n  \"email\": \"hnqtin@gmail.com\",\n  \"quantity\": 450\n}'"
+			},
+			"response": []
+		},
+		{
+			"name": "update event by id",
+			"request": {
+				"method": "PATCH",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSb2xlIjoiYWRtaW4iLCJUb2tlbklEIjoiNzk1NWJmYjQtOTdkZS00OWIwLTkxYzEtYWIxM2NmZjQyMzcxIiwiZXhwIjoxNzU2MDUzMzU4fQ.sb5hyclxyAdkTqok3Xyqbqo-EZBwnxoDU2ZUNCk91xM",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"test\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8081/events/3",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8081",
+					"path": [
+						"events",
+						"3"
+					]
+				},
+				"description": "Generated from cURL: curl --location 'http://localhost:8080/events/booking' \\\n--header 'Content-Type: application/json' \\\n--data-raw '\n{\n  \"event_id\": 1,\n  \"email\": \"hnqtin@gmail.com\",\n  \"quantity\": 450\n}'"
+			},
+			"response": []
+		},
+		{
+			"name": "payment callback",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSb2xlIjoiYWRtaW4iLCJUb2tlbklEIjoiNzk1NWJmYjQtOTdkZS00OWIwLTkxYzEtYWIxM2NmZjQyMzcxIiwiZXhwIjoxNzU2MDUzMzU4fQ.sb5hyclxyAdkTqok3Xyqbqo-EZBwnxoDU2ZUNCk91xM",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"booking_id\": 5,\n    \"payment_method\": \"paypal\",\n    \"signature\": \"sha256_hash_yza567bcd890\",\n    \"transaction_id\": \"txn_2025_005_12349\",\n    \"extra\": \"{\\\"paypal_email\\\": \\\"user@example.com\\\", \\\"currency\\\": \\\"USD\\\", \\\"exchange_rate\\\": \\\"1.0\\\", \\\"fees\\\": \\\"2.9%\\\"}\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8081/payment/callback",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8081",
+					"path": [
+						"payment",
+						"callback"
+					]
+				},
+				"description": "Generated from cURL: curl --location 'http://localhost:8080/events/booking' \\\n--header 'Content-Type: application/json' \\\n--data-raw '\n{\n  \"event_id\": 1,\n  \"email\": \"hnqtin@gmail.com\",\n  \"quantity\": 450\n}'"
+			},
+			"response": []
+		},
+		{
+			"name": "payment confirm",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSb2xlIjoiYWRtaW4iLCJUb2tlbklEIjoiN2JkYmZiNzUtNWIyYy00YzJlLWI1ZTgtMjE4MGMxMDJkMmNlIiwiZXhwIjoxNzU3MzUwMTkxfQ.JOMEnVtNWjOhAMji1J8biv6QOGYbQovpeSrmn1Dpn1Q",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"booking_id\" : 6\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8081/payment/confirm",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8081",
+					"path": [
+						"payment",
+						"confirm"
+					]
+				},
+				"description": "Generated from cURL: curl --location 'http://localhost:8080/events/booking' \\\n--header 'Content-Type: application/json' \\\n--data-raw '\n{\n  \"event_id\": 1,\n  \"email\": \"hnqtin@gmail.com\",\n  \"quantity\": 450\n}'"
+			},
+			"response": []
+		}
+	]
+}

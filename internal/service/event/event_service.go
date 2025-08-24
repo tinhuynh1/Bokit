@@ -261,8 +261,8 @@ func (s *EventService) GetEventStats(ctx context.Context, from string, to string
 	}
 	stats.TotalEvents = len(events)
 	eventIds := make([]int, len(events))
-	for _, event := range events {
-		eventIds = append(eventIds, event.ID)
+	for i, event := range events {
+		eventIds[i] = event.ID
 		stats.TotalTicketsSold += event.SoldTickets
 	}
 

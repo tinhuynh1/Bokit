@@ -28,7 +28,7 @@ func (r *eventRepo) ListEvents(ctx context.Context, limit int, offset int, from 
 		Debug().
 		Select("id, name, description, date_time, ticket_price, available_tickets, sold_tickets, created_at, updated_at").
 		Where("deleted_at IS NULL").
-		Order("date_time DESC").
+		Order("id DESC").
 		Limit(limit).
 		Offset(offset)
 

@@ -79,7 +79,7 @@ func (r *ticketBookingRepo) GetExpiredBooking(ctx context.Context, tx *gorm.DB) 
 }
 
 func (r *ticketBookingRepo) IsExistsBookingProcessing(ctx context.Context, bookingID int) (bool, error) {
-	return r.cache.SetNX(ctx, fmt.Sprintf("booking_processing:%d", bookingID), "true", 15*time.Minute).Result()
+	return r.cache.SetNX(ctx, fmt.Sprintf("booking_processing:%d", bookingID), "true", 45*time.Second).Result()
 }
 
 func (r *ticketBookingRepo) AcquireBookingLock(ctx context.Context) error {
