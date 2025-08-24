@@ -1,6 +1,6 @@
 # Development environment configuration
 jwt:
-  secret: "WDRwVjdfcU05JXROMXdLNkByRzhqTTJa"
+  secret: "Ym9va2luZy10aWNrZXQ="
   access_token_ttl: "30m"
   refresh_token_ttl: "24h"
 
@@ -35,7 +35,3 @@ logging:
   level: "debug"
   format: "text"
   output: "stdout"
-
-auth:
-  bcrypt_cost: 10
-  session_timeout: "12h" 

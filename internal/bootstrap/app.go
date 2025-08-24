@@ -5,10 +5,12 @@ import (
 	"booking-svc/internal/handler"
 	"booking-svc/internal/infra/cache"
 	"booking-svc/internal/infra/database"
+	"booking-svc/internal/infra/nats"
 	"booking-svc/internal/job"
 	"booking-svc/internal/repository"
 	"booking-svc/internal/router"
 	"booking-svc/internal/service/event"
+	"booking-svc/internal/service/payment"
 	"booking-svc/pkg/logger"
 	telemetry "booking-svc/pkg/tracer"
 	"fmt"
@@ -47,10 +49,22 @@ func NewApp() (*App, error) {
 
 	eventRepo := repository.NewEventRepo(db, rdb)
 	bookingRepo := repository.NewTicketBookingRepo(db, rdb)
-	eventSvc := event.NewEventService(logger.L, eventRepo, bookingRepo)
 
+	// Initialize NATS Publisher
+	natsPublisher, err := nats.NewPublisher("nats://localhost:4222")
+	if err != nil {
+		logger.L.Error("failed to create nats publisher", zap.Error(err))
+		return nil, err
+	}
+	defer natsPublisher.Close()
+
+	// Update EventService to use publisher
+	eventSvc := event.NewEventService(logger.L, eventRepo, bookingRepo, natsPublisher)
+
+	//event handler
 	eventHandler := handler.NewEventHandler(eventSvc, logger.L)
 
+	//cron job
 	cronJob := job.NewCancelBookingJob(eventSvc, logger.L)
 	cronJob.Run()
 
@@ -61,7 +75,15 @@ func NewApp() (*App, error) {
 	engine.Use(gin.Recovery())
 	engine.Use(otelgin.Middleware("booking-svc"))
 
-	router.SetupRoutes(engine, eventHandler)
+	kafkaClient, err := nats.NewPublisher(cfg.Kafka.Brokers[0])
+	if err != nil {
+		logger.L.Error("failed to create nats publisher", zap.Error(err))
+		return nil, err
+	}
+	paymentSvc := payment.NewPaymentService(logger.L, kafkaClient)
+	paymentHandler := handler.NewPaymentHandler(eventSvc, paymentSvc, logger.L)
+
+	router.SetupRoutes(engine, eventHandler, paymentHandler)
 	return &App{
 		engine: engine,
 		cfg:    cfg,

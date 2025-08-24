@@ -1,6 +1,6 @@
 # Base configuration
 jwt:
-  secret: "your-secret-key-here"
+  secret: "Ym9va2luZy10aWNrZXQ="
   access_token_ttl: "15m"
   refresh_token_ttl: "168h"  # 7 days
 

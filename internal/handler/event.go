@@ -62,7 +62,7 @@ func (h *EventHandler) UpdateEvent(c *gin.Context) {
 	}
 	req.ID = id
 	if err := h.service.UpdateEvent(c.Request.Context(), req); err != nil {
-		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, response.ErrorCodeInternalServer, "update_event_failed"))
+		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, response.ErrorCodeBadRequest, "update_event_failed"))
 		return
 	}
 	c.JSON(http.StatusOK, response.Success(nil, "update_event_success"))
@@ -100,8 +100,10 @@ func (h *EventHandler) ListEvent(c *gin.Context) {
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	from := c.Query("from")
+	to := c.Query("to")
 
-	events, paging, err := h.service.ListEvents(ctx, page, pageSize)
+	events, paging, err := h.service.ListEvents(ctx, page, pageSize, from, to)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, response.ErrorCodeBadRequest, "list_events_failed"))
 		return
@@ -123,8 +125,32 @@ func (h *EventHandler) BookTicket(c *gin.Context) {
 	}
 	req.EventID = eventID
 	if err := h.service.BookTicket(c.Request.Context(), req); err != nil {
-		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, response.ErrorCodeInternalServer, "book_ticket_failed"))
+		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, response.ErrorCodeBadRequest, "book_ticket_failed"))
 		return
 	}
 	c.JSON(http.StatusOK, response.Success(nil, "book_ticket_success"))
+}
+
+func (h *EventHandler) GetEventStats(c *gin.Context) {
+	ctx := c.Request.Context()
+	tracer := otel.Tracer("booking-svc")
+	_, span := tracer.Start(ctx, "get_event_stats")
+	defer span.End()
+	h.logger.Info("get event stats request", zap.String("trace_id", span.SpanContext().TraceID().String()))
+
+	role, _ := c.Get("role")
+	if roleStr, _ := role.(string); roleStr != "admin" {
+		c.JSON(http.StatusForbidden, response.Error(http.StatusForbidden, response.ErrorCodeForbidden, "access_forbidden"))
+		return
+	}
+
+	from := c.Query("from")
+	to := c.Query("to")
+
+	stats, err := h.service.GetEventStats(ctx, from, to)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, response.ErrorCodeInternalServer, "get_event_stats_failed"))
+		return
+	}
+	c.JSON(http.StatusOK, response.Success(stats, "get_event_stats_success"))
 }

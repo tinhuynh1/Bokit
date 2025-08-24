@@ -7,7 +7,8 @@ CREATE TABLE events (
   description    TEXT,
   date_time      TIMESTAMPTZ NOT NULL,
   ticket_price   DOUBLE PRECISION NOT NULL DEFAULT 0,
-  total_tickets  INTEGER NOT NULL DEFAULT 0,
+  available_tickets  INTEGER NOT NULL DEFAULT 0,
+  sold_tickets  INTEGER NOT NULL DEFAULT 0,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at     TIMESTAMPTZ DEFAULT NULL

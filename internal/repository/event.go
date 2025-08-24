@@ -20,20 +20,41 @@ func NewEventRepo(db *gorm.DB, cache *redis.Client) domain.EventRepository {
 	return &eventRepo{db: db, cache: cache}
 }
 
-func (r *eventRepo) ListEvents(ctx context.Context, limit int, offset int) ([]domain.Event, int64, error) {
+func (r *eventRepo) ListEvents(ctx context.Context, limit int, offset int, from string, to string) ([]domain.Event, int64, error) {
 	var events []domain.Event
 	var total int64
-	err := r.db.WithContext(ctx).Model(&domain.Event{}).
-		Select("id, name, description, date_time, ticket_price, total_tickets, created_at, updated_at").
-		Count(&total).
+	// err := r.db.WithContext(ctx).Model(&domain.Event{}).
+	// 	Select("id, name, description, date_time, ticket_price, total_tickets, created_at, updated_at").
+	// 	Count(&total).
+	// 	Where("deleted_at IS NULL").
+	// 	Order("date_time DESC").
+	// 	Limit(limit).
+	// 	Offset(offset).
+	// 	Find(&events).Error
+	// if err != nil {
+	// 	return nil, 0, err
+	// }
+
+	query := r.db.WithContext(ctx).Model(&domain.Event{}).
+		Select("id, name, description, date_time, ticket_price, available_tickets, sold_tickets, created_at, updated_at").
 		Where("deleted_at IS NULL").
 		Order("date_time DESC").
 		Limit(limit).
-		Offset(offset).
-		Find(&events).Error
+		Offset(offset)
+
+	if from != "" {
+		query = query.Where("date_time >= ?", from)
+	}
+
+	if to != "" {
+		query = query.Where("date_time < ?", to)
+	}
+	query = query.Count(&total)
+	err := query.Find(&events).Error
 	if err != nil {
 		return nil, 0, err
 	}
+
 	return events, total, nil
 }
 
@@ -91,7 +112,7 @@ func (r *eventRepo) GetEventsByIds(ctx context.Context, ids []int) ([]domain.Eve
 }
 
 func (r *eventRepo) UpdateEventsWithTx(ctx context.Context, tx *gorm.DB, events []domain.Event) error {
-	err := tx.WithContext(ctx).Save(events).Error
+	err := tx.WithContext(ctx).Save(&events).Error
 	if err != nil {
 		return err
 	}

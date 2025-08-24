@@ -1,6 +1,6 @@
 # UAT environment configuration
 jwt:
-  secret: "uat-secret-key-456"
+  secret: "Ym9va2luZy10aWNrZXQ="
   access_token_ttl: "15m"
   refresh_token_ttl: "168h"
 

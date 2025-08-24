@@ -19,7 +19,7 @@ func NewCancelBookingJob(svc *eventsvc.EventService, logger *zap.Logger) *cancel
 
 func (j *cancelBookingJob) Run() {
 	j.scheduler = cron.New()
-	j.scheduler.AddFunc("0 * * * *", func() {
+	j.scheduler.AddFunc("0 */3 * * *", func() {
 		err := j.service.CancelBooking()
 		if err != nil {
 			j.logger.Error("cancel booking job failed", zap.Error(err))

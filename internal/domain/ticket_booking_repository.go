@@ -13,6 +13,9 @@ type TicketBookingRepository interface {
 	GetByEventID(ctx context.Context, eventID int) ([]TicketBooking, error)
 	GetByEmail(ctx context.Context, email string) ([]TicketBooking, error)
 	GetByStatus(ctx context.Context, status string) ([]TicketBooking, error)
-	CancelBooking(ctx context.Context, bookingIds []int) error
-	GetExpiredBooking(ctx context.Context) ([]TicketBooking, error)
+	UpdateStatusByIds(ctx context.Context, tx *gorm.DB, bookingIds []int, status string) error
+	UpdateStatusById(ctx context.Context, bookingID int, status string) error
+	GetExpiredBooking(ctx context.Context, tx *gorm.DB) ([]TicketBooking, error)
+	GetBookingsByEventIds(ctx context.Context, eventIds []int) ([]TicketBooking, error)
+	GetBookingById(ctx context.Context, bookingID int) (TicketBooking, error)
 }

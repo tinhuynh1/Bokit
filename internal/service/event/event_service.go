@@ -5,6 +5,7 @@ import (
 	"booking-svc/internal/domain"
 	"booking-svc/internal/dto"
 	"booking-svc/internal/infra/database"
+	"booking-svc/internal/infra/nats"
 	"context"
 	"errors"
 	"time"
@@ -16,13 +17,18 @@ type EventService struct {
 	logger      *zap.Logger
 	eventRepo   domain.EventRepository
 	bookingRepo domain.TicketBookingRepository
+	nats        *nats.Publisher
 }
 
-func NewEventService(logger *zap.Logger, repo domain.EventRepository, bookingRepo domain.TicketBookingRepository) *EventService {
-	return &EventService{logger: logger, eventRepo: repo, bookingRepo: bookingRepo}
+func NewEventService(logger *zap.Logger,
+	repo domain.EventRepository,
+	bookingRepo domain.TicketBookingRepository,
+	nats *nats.Publisher,
+) *EventService {
+	return &EventService{logger: logger, eventRepo: repo, bookingRepo: bookingRepo, nats: nats}
 }
 
-func (s *EventService) ListEvents(ctx context.Context, page int, pageSize int) ([]dto.ListEventResponse, response.Paging, error) {
+func (s *EventService) ListEvents(ctx context.Context, page int, pageSize int, from string, to string) ([]dto.ListEventResponse, response.Paging, error) {
 	if page <= 0 {
 		page = 1
 	}
@@ -30,19 +36,20 @@ func (s *EventService) ListEvents(ctx context.Context, page int, pageSize int) (
 		pageSize = 20
 	}
 	offset := (page - 1) * pageSize
-	events, total, err := s.eventRepo.ListEvents(ctx, pageSize, offset)
+	events, total, err := s.eventRepo.ListEvents(ctx, pageSize, offset, from, to)
 	if err != nil {
 		return nil, response.Paging{}, err
 	}
 	resp := make([]dto.ListEventResponse, len(events))
 	for i, event := range events {
 		resp[i] = dto.ListEventResponse{
-			ID:           event.ID,
-			Name:         event.Name,
-			Description:  event.Description,
-			DateTime:     event.DateTime.Format(time.RFC3339),
-			TicketPrice:  event.TicketPrice,
-			TotalTickets: event.TotalTickets,
+			ID:               event.ID,
+			Name:             event.Name,
+			Description:      event.Description,
+			DateTime:         event.DateTime.Format(time.RFC3339),
+			TicketPrice:      event.TicketPrice,
+			AvailableTickets: event.AvailableTickets,
+			SoldTickets:      event.SoldTickets,
 		}
 	}
 	return resp, response.Paging{
@@ -59,13 +66,21 @@ func (s *EventService) CreateEvent(ctx context.Context, req dto.CreateEventReque
 		return err
 	}
 	req.DateTime = dateTime.Format(time.RFC3339)
-
+	if dateTime.Before(time.Now()) {
+		return errors.New("event date time must be in the future")
+	}
+	if req.AvailableTickets < 0 {
+		return errors.New("available tickets must be greater than 0")
+	}
+	if req.TicketPrice < 0 {
+		return errors.New("ticket price must be greater than 0")
+	}
 	event := &domain.Event{
-		Name:         req.Name,
-		Description:  req.Description,
-		DateTime:     dateTime,
-		TicketPrice:  req.TicketPrice,
-		TotalTickets: req.TotalTickets,
+		Name:             req.Name,
+		Description:      req.Description,
+		DateTime:         dateTime,
+		TicketPrice:      req.TicketPrice,
+		AvailableTickets: req.AvailableTickets,
 	}
 	err = s.eventRepo.CreateEvent(ctx, event)
 	if err != nil {
@@ -103,7 +118,7 @@ func (s *EventService) BookTicket(ctx context.Context, req dto.BookingEventReque
 	}
 
 	// check if event has available tickets
-	if event.TotalTickets < req.Quantity {
+	if event.AvailableTickets < req.Quantity {
 		s.logger.Error("no available tickets")
 		return errors.New("no available tickets")
 	}
@@ -120,7 +135,8 @@ func (s *EventService) BookTicket(ctx context.Context, req dto.BookingEventReque
 		s.logger.Error("create booking failed", zap.Error(err))
 		return err
 	}
-	event.TotalTickets -= req.Quantity
+	event.AvailableTickets -= req.Quantity
+	event.SoldTickets += req.Quantity
 	err = s.eventRepo.UpdateEventWithTx(ctx, tx, event)
 	if err != nil {
 		s.logger.Error("update event failed", zap.Error(err))
@@ -134,6 +150,7 @@ func (s *EventService) CancelBooking() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 
+	//acquire lock prevent multiple job cancel booking run at the same time
 	lock := s.bookingRepo.AcquireBookingLock(ctx)
 	if lock != nil {
 		return errors.New("lock acquired")
@@ -142,7 +159,7 @@ func (s *EventService) CancelBooking() error {
 
 	tx := database.BeginTxn()
 	defer database.RollbackTxn(tx)
-	bookings, err := s.bookingRepo.GetExpiredBooking(ctx)
+	bookings, err := s.bookingRepo.GetExpiredBooking(ctx, tx)
 	if err != nil {
 		s.logger.Error("cancel booking failed", zap.Error(err))
 		return err
@@ -153,19 +170,21 @@ func (s *EventService) CancelBooking() error {
 		return nil
 	}
 
+	var eventIds []int
 	var bookingIds []int
 	mapIdBooking := make(map[int]domain.TicketBooking)
 	for _, booking := range bookings {
 		bookingIds = append(bookingIds, booking.ID)
-		mapIdBooking[booking.ID] = booking
+		eventIds = append(eventIds, booking.EventID)
+		mapIdBooking[booking.EventID] = booking
 	}
-	err = s.bookingRepo.CancelBooking(ctx, bookingIds)
+	err = s.bookingRepo.UpdateStatusByIds(ctx, tx, bookingIds, string(domain.BookingStatusCancelled))
 	if err != nil {
 		s.logger.Error("cancel booking failed", zap.Error(err))
 		return err
 	}
 
-	events, err := s.eventRepo.GetEventsByIds(ctx, bookingIds)
+	events, err := s.eventRepo.GetEventsByIds(ctx, eventIds)
 	if err != nil {
 		s.logger.Error("get events by ids failed", zap.Error(err))
 		return err
@@ -173,7 +192,8 @@ func (s *EventService) CancelBooking() error {
 
 	for _, event := range events {
 		if booking, ok := mapIdBooking[event.ID]; ok {
-			event.TotalTickets += booking.Quantity
+			event.AvailableTickets += booking.Quantity
+			event.SoldTickets -= booking.Quantity
 		}
 	}
 
@@ -192,29 +212,33 @@ func (s *EventService) CancelBooking() error {
 }
 
 func (s *EventService) UpdateEvent(ctx context.Context, req dto.UpdateEventRequest) error {
-	dateTime, err := time.Parse(time.RFC3339, req.DateTime)
+	tx := database.BeginTxn()
+	defer database.RollbackTxn(tx)
+	event, err := s.eventRepo.GetEventForBooking(ctx, tx, req.ID)
 	if err != nil {
 		s.logger.Error("get event for booking failed", zap.Error(err))
 		return err
 	}
-	req.DateTime = dateTime.Format(time.RFC3339)
-
-	event, err := s.eventRepo.GetEventForBooking(ctx, nil, req.ID)
-	if err != nil {
-		s.logger.Error("get event for booking failed", zap.Error(err))
-		return err
+	if req.DateTime != "" {
+		dateTime, err := time.Parse(time.RFC3339, req.DateTime)
+		if err != nil {
+			s.logger.Error("get event for booking failed", zap.Error(err))
+			return err
+		}
+		event.DateTime = dateTime
 	}
 
-	if req.TotalTickets != 0 && req.TotalTickets > event.TotalTickets {
-		event.TotalTickets = req.TotalTickets
+	if req.AvailableTickets != nil {
+		if *req.AvailableTickets < 0 {
+			return errors.New("available tickets must be greater than 0")
+		}
+		event.AvailableTickets = *req.AvailableTickets
 	}
 
 	if req.TicketPrice != 0 {
 		event.TicketPrice = req.TicketPrice
 	}
-	if req.DateTime != "" {
-		event.DateTime = dateTime
-	}
+
 	if req.Name != "" {
 		event.Name = req.Name
 	}
@@ -222,10 +246,62 @@ func (s *EventService) UpdateEvent(ctx context.Context, req dto.UpdateEventReque
 		event.Description = req.Description
 	}
 
-	err = s.eventRepo.UpdateEventWithTx(ctx, nil, event)
+	err = s.eventRepo.UpdateEventWithTx(ctx, tx, event)
 	if err != nil {
 		s.logger.Error("update event failed", zap.Error(err))
 		return err
 	}
+	return database.CommitTxn(tx)
+}
+
+func (s *EventService) GetEventStats(ctx context.Context, from string, to string) (dto.EventStatsResponse, error) {
+	var stats dto.EventStatsResponse
+	events, _, err := s.eventRepo.ListEvents(ctx, 1000, 0, from, to)
+	if err != nil {
+		s.logger.Error("get event stats failed", zap.Error(err))
+		return stats, err
+	}
+	stats.TotalEvents = len(events)
+	eventIds := make([]int, len(events))
+	for _, event := range events {
+		eventIds = append(eventIds, event.ID)
+	}
+
+	bookings, err := s.bookingRepo.GetBookingsByEventIds(ctx, eventIds)
+	if err != nil {
+		s.logger.Error("get bookings by event ids failed", zap.Error(err))
+		return stats, err
+	}
+
+	mapIdBooking := make(map[int]domain.TicketBooking)
+	for _, booking := range bookings {
+		mapIdBooking[booking.EventID] = booking
+	}
+
+	for _, event := range events {
+		if booking, ok := mapIdBooking[event.ID]; ok {
+			stats.TotalTicketsSold += booking.Quantity
+			stats.TotalRevenue += booking.TotalPrice
+		}
+	}
+
+	return stats, nil
+}
+
+func (s *EventService) PaymentCallback(ctx context.Context, req dto.PaymentCallbackRequest) error {
+	//validate signature
+	// check if booking exists
+	booking, err := s.bookingRepo.GetBookingById(ctx, req.BookingID)
+	if err != nil {
+		s.logger.Error("get booking by id failed", zap.Error(err))
+		return err
+	}
+
+	err = s.bookingRepo.UpdateStatusById(ctx, booking.ID, string(domain.BookingStatusConfirmed))
+	if err != nil {
+		s.logger.Error("update booking failed", zap.Error(err))
+		return err
+	}
+
 	return nil
 }

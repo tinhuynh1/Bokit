@@ -4,7 +4,6 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: booking-postgres
-    restart: always
     environment:
       POSTGRES_USER: booking_app
       POSTGRES_PASSWORD: "X4pV7_qM9%tN1wK6@rG8jM2Z"
@@ -17,24 +16,30 @@ services:
   redis:
     image: redis:7-alpine
     container_name: booking-redis
-    restart: always
     ports:
       - "6379:6379"
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "StrongPass!123"]
     volumes:
       - redisdata:/data
 
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.90.0
-    container_name: otel-collector
-    restart: always
+  nats:
+    image: nats:2.9-alpine
+    container_name: booking-nats
     ports:
-      - "4317:4317"
-      - "55681:55681"
-      - "8888:8888"
-    volumes:
-      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
-    command: ["--config=/etc/otel-collector-config.yaml"]
+      - "4222:4222"
+      - "8222:8222"
+    command: ["-js", "-m", "8222"]
+
+  nats-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: nats-ui
+    depends_on:
+      - nats
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: nats
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: nats:4222
 
 volumes:
   pgdata:

@@ -1,9 +1,7 @@
 package utils
 
 import (
-	"encoding/base64"
-	"fmt"
-	"strings"
+	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -43,37 +41,22 @@ func GenerateTokens(role string, jwtSecret []byte, accessTTL, refreshTTL time.Du
 	return accessToken, refreshToken, tokenID
 }
 
-func VerifyAccessToken(tokenStr string, jwtSecret []byte) (*CustomClaims, error) {
-	if tokenStr == "" {
-		return nil, fmt.Errorf("token is empty")
-	}
+func VerifyAccessToken(tokenStr string, secret []byte) (*CustomClaims, error) {
+	parser := jwt.NewParser(
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+	)
 
-	// Trim whitespace
-	tokenStr = strings.TrimSpace(tokenStr)
-
-	// Kiểm tra format cơ bản
-	parts := strings.Split(tokenStr, ".")
-	if len(parts) != 3 {
-		return nil, fmt.Errorf("token has %d parts, expected 3. Token: %s", len(parts), tokenStr)
-	}
-
-	// Kiểm tra header có thể decode được không
-	_, err := base64.RawURLEncoding.DecodeString(parts[0])
-	if err != nil {
-		return nil, fmt.Errorf("invalid header base64: %v. Header part: %s", err, parts[0])
-	}
-
-	// Log để debug
-	fmt.Printf("Token parts: %d, Header: %s, Payload: %s, Signature: %s\n",
-		len(parts), parts[0], parts[1], parts[2])
-
-	token, err := jwt.ParseWithClaims(tokenStr, &CustomClaims{}, func(t *jwt.Token) (interface{}, error) {
-		return jwtSecret, nil
+	var claims CustomClaims
+	tok, err := parser.ParseWithClaims(tokenStr, &claims, func(t *jwt.Token) (interface{}, error) {
+		return secret, nil
 	})
-	if err != nil || !token.Valid {
+	if err != nil {
 		return nil, err
 	}
-	return token.Claims.(*CustomClaims), nil
+	if !tok.Valid {
+		return nil, errors.New("invalid token")
+	}
+	return &claims, nil
 }
 
 func VerifyRefreshToken(tokenStr string, jwtSecret []byte) (*CustomClaims, error) {

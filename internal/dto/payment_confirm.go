@@ -1,9 +1,9 @@
 package dto
 
-type PaymentCallbackRequest struct {
+type PaymentConfirmRequest struct {
 	BookingID     int    `json:"booking_id"`
 	PaymentMethod string `json:"payment_method"`
 	Signature     string `json:"signature"`
-	TransactionId string `json:"transaction_id"`
+	TransactionID string `json:"transaction_id"`
 	ExtraData     string `json:"extra"`
 }

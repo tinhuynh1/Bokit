@@ -18,7 +18,7 @@ type Config struct {
 	Logging  LoggingConfig  `mapstructure:"logging"`
 	Auth     AuthConfig     `mapstructure:"auth"`
 	Env      string         `mapstructure:"env"`
-	Google   GoogleConfig   `mapstructure:"google"`
+	Kafka    KafkaConfig    `mapstructure:"kafka"`
 }
 
 // JWTConfig holds JWT-related configuration
@@ -56,6 +56,10 @@ type RedisConfig struct {
 	MinIdleConns int    `mapstructure:"min_idle_conns"`
 }
 
+type KafkaConfig struct {
+	Brokers []string `mapstructure:"brokers"`
+}
+
 // ServerConfig holds server configuration
 type ServerConfig struct {
 	Port         int    `mapstructure:"port"`
@@ -76,12 +80,6 @@ type LoggingConfig struct {
 type AuthConfig struct {
 	BcryptCost     int    `mapstructure:"bcrypt_cost"`
 	SessionTimeout string `mapstructure:"session_timeout"`
-}
-
-type GoogleConfig struct {
-	ClientID     string `mapstructure:"client_id"`
-	ClientSecret string `mapstructure:"client_secret"`
-	RedirectURL  string `mapstructure:"redirect_url"`
 }
 
 var (
@@ -192,7 +190,7 @@ func GetRedisAddr() string {
 
 // Legacy variables for backward compatibility
 var (
-	JWTSecret        = []byte("WDRwVjdfcU05JXROMXdLNkByRzhqTTJa")
+	JWTSecret        = []byte("Ym9va2luZy10aWNrZXQ=")
 	AccessTokenTTL   = 15 * time.Minute
 	RefreshTokenTTL  = 7 * 24 * time.Hour
 	RedisTokenPrefix = "jwt_token:"

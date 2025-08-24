@@ -1,6 +1,6 @@
 # Development environment configuration
 jwt:
-  secret: "dev-secret-key-123"
+  secret: "Ym9va2luZy10aWNrZXQ="
   access_token_ttl: "30m"
   refresh_token_ttl: "24h"
 
@@ -23,6 +23,10 @@ redis:
   db: 1
   pool_size: 5
   min_idle_conns: 2
+
+kafka:
+  brokers:
+    - "localhost:9092"
 
 server:
   port: 8080
