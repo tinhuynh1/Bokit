@@ -90,7 +90,7 @@ goose --version
 
 ```bash
 git clone https://github.com/tinhuynh1/Bokit.git
-cd auth-service
+cd Bokit
 ```
 
 ### 2. Khởi Động Dependencies
