@@ -23,19 +23,9 @@ func NewEventRepo(db *gorm.DB, cache *redis.Client) domain.EventRepository {
 func (r *eventRepo) ListEvents(ctx context.Context, limit int, offset int, from string, to string) ([]domain.Event, int64, error) {
 	var events []domain.Event
 	var total int64
-	// err := r.db.WithContext(ctx).Model(&domain.Event{}).
-	// 	Select("id, name, description, date_time, ticket_price, total_tickets, created_at, updated_at").
-	// 	Count(&total).
-	// 	Where("deleted_at IS NULL").
-	// 	Order("date_time DESC").
-	// 	Limit(limit).
-	// 	Offset(offset).
-	// 	Find(&events).Error
-	// if err != nil {
-	// 	return nil, 0, err
-	// }
 
 	query := r.db.WithContext(ctx).Model(&domain.Event{}).
+		Debug().
 		Select("id, name, description, date_time, ticket_price, available_tickets, sold_tickets, created_at, updated_at").
 		Where("deleted_at IS NULL").
 		Order("date_time DESC").
@@ -61,6 +51,7 @@ func (r *eventRepo) ListEvents(ctx context.Context, limit int, offset int, from 
 func (r *eventRepo) GetEventForBooking(ctx context.Context, tx *gorm.DB, id int) (*domain.Event, error) {
 	var event domain.Event
 	err := tx.WithContext(ctx).Model(&domain.Event{}).
+		Debug().
 		Where("id = ?", id).
 		Where("deleted_at IS NULL").
 		Clauses(clause.Locking{Strength: "UPDATE"}).
@@ -72,7 +63,9 @@ func (r *eventRepo) GetEventForBooking(ctx context.Context, tx *gorm.DB, id int)
 }
 
 func (r *eventRepo) CreateEvent(ctx context.Context, event *domain.Event) error {
-	err := r.db.WithContext(ctx).Create(event).Error
+	err := r.db.WithContext(ctx).
+		Debug().
+		Create(event).Error
 	if err != nil {
 		return err
 	}
@@ -80,7 +73,9 @@ func (r *eventRepo) CreateEvent(ctx context.Context, event *domain.Event) error 
 }
 
 func (r *eventRepo) UpdateEventWithTx(ctx context.Context, tx *gorm.DB, event *domain.Event) error {
-	err := tx.WithContext(ctx).Save(event).Error
+	err := tx.WithContext(ctx).
+		Debug().
+		Save(event).Error
 	if err != nil {
 		return err
 	}
@@ -89,6 +84,7 @@ func (r *eventRepo) UpdateEventWithTx(ctx context.Context, tx *gorm.DB, event *d
 
 func (r *eventRepo) DeleteEvent(ctx context.Context, id int) error {
 	result := r.db.WithContext(ctx).Model(&domain.Event{}).
+		Debug().
 		Where("id = ?", id).
 		Where("deleted_at IS NULL").
 		Update("deleted_at", time.Now())
@@ -104,6 +100,7 @@ func (r *eventRepo) DeleteEvent(ctx context.Context, id int) error {
 func (r *eventRepo) GetEventsByIds(ctx context.Context, ids []int) ([]domain.Event, error) {
 	var events []domain.Event
 	err := r.db.WithContext(ctx).Model(&domain.Event{}).
+		Debug().
 		Where("id IN (?)", ids).
 		Where("deleted_at IS NULL").
 		Clauses(clause.Locking{Strength: "UPDATE"}).
@@ -112,9 +109,29 @@ func (r *eventRepo) GetEventsByIds(ctx context.Context, ids []int) ([]domain.Eve
 }
 
 func (r *eventRepo) UpdateEventsWithTx(ctx context.Context, tx *gorm.DB, events []domain.Event) error {
-	err := tx.WithContext(ctx).Save(&events).Error
+	err := tx.WithContext(ctx).
+		Debug().
+		Save(&events).Error
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (r *eventRepo) GetEventStats(ctx context.Context, from string, to string) ([]domain.Event, error) {
+	var events []domain.Event
+	query := r.db.WithContext(ctx).Model(&domain.Event{}).
+		Debug().
+		Where("deleted_at IS NULL")
+	if from != "" {
+		query = query.Where("date_time >= ?", from)
+	}
+	if to != "" {
+		query = query.Where("date_time < ?", to)
+	}
+	err := query.Find(&events).Error
+	if err != nil {
+		return nil, err
+	}
+	return events, err
 }

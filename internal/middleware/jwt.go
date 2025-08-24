@@ -25,7 +25,7 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		claims, err := utils.VerifyAccessToken(tokenString, config.JWTSecret)
+		claims, err := utils.VerifyAccessToken(tokenString, config.AppConfig.GetJWTSecret())
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, response.Error(http.StatusUnauthorized, response.ErrorCodeUnauthorized, "invalid_or_expired_token"))
 			return

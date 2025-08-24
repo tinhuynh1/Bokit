@@ -254,7 +254,7 @@ func (s *EventService) UpdateEvent(ctx context.Context, req dto.UpdateEventReque
 
 func (s *EventService) GetEventStats(ctx context.Context, from string, to string) (dto.EventStatsResponse, error) {
 	var stats dto.EventStatsResponse
-	events, _, err := s.eventRepo.ListEvents(ctx, 1000, 0, from, to)
+	events, err := s.eventRepo.GetEventStats(ctx, from, to)
 	if err != nil {
 		s.logger.Error("get event stats failed", zap.Error(err))
 		return stats, err
@@ -263,6 +263,7 @@ func (s *EventService) GetEventStats(ctx context.Context, from string, to string
 	eventIds := make([]int, len(events))
 	for _, event := range events {
 		eventIds = append(eventIds, event.ID)
+		stats.TotalTicketsSold += event.SoldTickets
 	}
 
 	bookings, err := s.bookingRepo.GetBookingsByEventIds(ctx, eventIds)
@@ -272,16 +273,21 @@ func (s *EventService) GetEventStats(ctx context.Context, from string, to string
 	}
 
 	mapIdBooking := make(map[int]domain.TicketBooking)
+	mapIdEventRevenue := make(map[int]float64)
 	for _, booking := range bookings {
 		mapIdBooking[booking.EventID] = booking
+		mapIdEventRevenue[booking.EventID] += booking.TotalPrice
+		stats.TotalRevenue += booking.TotalPrice
+	}
+	eventStats := make([]dto.EventStats, len(events))
+	for i, event := range events {
+		eventStats[i].EventID = event.ID
+		eventStats[i].EventName = event.Name
+		eventStats[i].TotalTicketsSold = event.SoldTickets
+		eventStats[i].TotalRevenue = mapIdEventRevenue[event.ID]
 	}
 
-	for _, event := range events {
-		if booking, ok := mapIdBooking[event.ID]; ok {
-			stats.TotalTicketsSold += booking.Quantity
-			stats.TotalRevenue += booking.TotalPrice
-		}
-	}
+	stats.Events = eventStats
 
 	return stats, nil
 }

@@ -6,6 +6,7 @@ import (
 	"booking-svc/internal/infra/message_broker"
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
@@ -33,14 +34,14 @@ func NewPaymentService(
 }
 
 func (s *PaymentService) ConfirmPayment(ctx context.Context, req dto.PaymentConfirmRequest) error {
-	//idempotenceKey := fmt.Sprintf("payment_confirm:%s", req.TransactionId)
-	// processed, err := s.redis.Exists(ctx, idempotenceKey).Result()
-	// if err != nil {
-	// 	s.logger.Error("failed to check idempotence",
-	// 		zap.String("transaction_id", req.TransactionId),
-	// 		zap.Error(err))
-	// 	return fmt.Errorf("failed to check idempotence: %w", err)
-	// }
+	exists, err := s.bookingRepo.IsExistsBookingProcessing(ctx, req.BookingID)
+	if err != nil {
+		return fmt.Errorf("failed to check idempotence: %w", err)
+	}
+	if exists {
+		s.logger.Info("booking is already processing", zap.Int("booking_id", req.BookingID))
+		return nil
+	}
 	booking, err := s.bookingRepo.GetBookingById(ctx, req.BookingID)
 	if err != nil {
 		s.logger.Error("get booking by id failed", zap.Error(err))

@@ -9,6 +9,7 @@ import (
 type TicketBookingRepository interface {
 	AcquireBookingLock(ctx context.Context) error
 	ReleaseBookingLock(ctx context.Context) error
+	IsExistsBookingProcessing(ctx context.Context, bookingID int) (bool, error)
 	CreateWithTx(ctx context.Context, tx *gorm.DB, booking *TicketBooking) error
 	GetByEventID(ctx context.Context, eventID int) ([]TicketBooking, error)
 	GetByEmail(ctx context.Context, email string) ([]TicketBooking, error)

@@ -146,7 +146,6 @@ func (h *EventHandler) GetEventStats(c *gin.Context) {
 
 	from := c.Query("from")
 	to := c.Query("to")
-
 	stats, err := h.service.GetEventStats(ctx, from, to)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, response.ErrorCodeInternalServer, "get_event_stats_failed"))

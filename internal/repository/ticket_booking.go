@@ -3,6 +3,7 @@ package repository
 import (
 	"booking-svc/internal/domain"
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -26,12 +27,18 @@ func (r *ticketBookingRepo) CreateWithTx(ctx context.Context, tx *gorm.DB, booki
 }
 func (r *ticketBookingRepo) GetByEventID(ctx context.Context, eventID int) ([]domain.TicketBooking, error) {
 	var bookings []domain.TicketBooking
-	err := r.db.Where("event_id = ?", eventID).Find(&bookings).Error
+	err := r.db.
+		Debug().
+		Where("event_id = ?", eventID).
+		Find(&bookings).Error
 	return bookings, err
 }
 func (r *ticketBookingRepo) GetByEmail(ctx context.Context, email string) ([]domain.TicketBooking, error) {
 	var bookings []domain.TicketBooking
-	err := r.db.Where("email = ?", email).Find(&bookings).Error
+	err := r.db.
+		Debug().
+		Where("email = ?", email).
+		Find(&bookings).Error
 	return bookings, err
 }
 func (r *ticketBookingRepo) GetByStatus(ctx context.Context, status string) ([]domain.TicketBooking, error) {
@@ -39,6 +46,7 @@ func (r *ticketBookingRepo) GetByStatus(ctx context.Context, status string) ([]d
 }
 func (r *ticketBookingRepo) UpdateStatusByIds(ctx context.Context, tx *gorm.DB, bookingIds []int, status string) error {
 	return tx.Model(&domain.TicketBooking{}).
+		Debug().
 		Where("id IN (?)", bookingIds).
 		Update("status", status).
 		Update("updated_at", time.Now()).
@@ -46,21 +54,32 @@ func (r *ticketBookingRepo) UpdateStatusByIds(ctx context.Context, tx *gorm.DB, 
 }
 
 func (r *ticketBookingRepo) UpdateStatusById(ctx context.Context, bookingID int, status string) error {
-	return r.db.Model(&domain.TicketBooking{}).Where("id = ?", bookingID).Update("status", status).Error
+	return r.db.Model(&domain.TicketBooking{}).
+		Debug().
+		Where("id = ?", bookingID).
+		Update("status", status).
+		Error
 }
 
 func (r *ticketBookingRepo) UpdateBooking(ctx context.Context, booking *domain.TicketBooking) error {
-	return r.db.Model(&domain.TicketBooking{}).Where("id = ?", booking.ID).Updates(booking).Error
+	return r.db.Model(&domain.TicketBooking{}).
+		Debug().
+		Where("id = ?", booking.ID).
+		Updates(booking).Error
 }
 
 func (r *ticketBookingRepo) GetExpiredBooking(ctx context.Context, tx *gorm.DB) ([]domain.TicketBooking, error) {
 	var bookings []domain.TicketBooking
 
 	err := tx.Model(&domain.TicketBooking{}).
-		Where("status = ? AND created_at < ?", domain.BookingStatusPending, time.Now().Add(-10*time.Minute)).
 		Debug().
+		Where("status = ? AND created_at < ?", domain.BookingStatusPending, time.Now().Add(-15*time.Minute)).
 		Find(&bookings).Error
 	return bookings, err
+}
+
+func (r *ticketBookingRepo) IsExistsBookingProcessing(ctx context.Context, bookingID int) (bool, error) {
+	return r.cache.SetNX(ctx, fmt.Sprintf("booking_processing:%d", bookingID), "true", 15*time.Minute).Result()
 }
 
 func (r *ticketBookingRepo) AcquireBookingLock(ctx context.Context) error {
@@ -72,18 +91,18 @@ func (r *ticketBookingRepo) ReleaseBookingLock(ctx context.Context) error {
 
 func (r *ticketBookingRepo) GetBookingsByEventIds(ctx context.Context, eventIds []int) ([]domain.TicketBooking, error) {
 	var bookings []domain.TicketBooking
-	err := r.db.Model(&domain.TicketBooking{}).Where("event_id IN (?)", eventIds).Find(&bookings).Error
+	err := r.db.Model(&domain.TicketBooking{}).
+		Debug().
+		Where("event_id IN (?)", eventIds).
+		Find(&bookings).Error
 	return bookings, err
 }
 
 func (r *ticketBookingRepo) GetBookingById(ctx context.Context, bookingID int) (domain.TicketBooking, error) {
 	var booking domain.TicketBooking
 	err := r.db.Model(&domain.TicketBooking{}).
+		Debug().
 		Where("id = ?", bookingID).
 		First(&booking).Error
 	return booking, err
 }
-
-// func (r *ticketBookingRepo) PaymentProcessingExists(ctx context.Context, transactionID string) (bool, error) {
-// 	return r.cache.Get(ctx, transactionID).Result()
-// }

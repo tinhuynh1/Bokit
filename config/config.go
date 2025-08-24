@@ -190,7 +190,6 @@ func GetRedisAddr() string {
 
 // Legacy variables for backward compatibility
 var (
-	JWTSecret        = []byte("Ym9va2luZy10aWNrZXQ=")
 	AccessTokenTTL   = 15 * time.Minute
 	RefreshTokenTTL  = 7 * 24 * time.Hour
 	RedisTokenPrefix = "jwt_token:"

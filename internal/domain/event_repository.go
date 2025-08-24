@@ -14,5 +14,5 @@ type EventRepository interface {
 	UpdateEventWithTx(ctx context.Context, tx *gorm.DB, event *Event) error
 	DeleteEvent(ctx context.Context, id int) error
 	UpdateEventsWithTx(ctx context.Context, tx *gorm.DB, events []Event) error
-	//GetEventStats(ctx context.Context, from string, to string) ([]dto.EventStatsResponse, error)
+	GetEventStats(ctx context.Context, from string, to string) ([]Event, error)
 }

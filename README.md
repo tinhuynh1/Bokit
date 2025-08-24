@@ -89,7 +89,7 @@ goose --version
 ### 1. Clone Repository
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/tinhuynh1/Bokit.git
 cd auth-service
 ```
 
@@ -115,8 +115,6 @@ docker-compose ps
 # Chạy migrations
 make migrate-up
 
-# Hoặc thủ công
-goose -dir migration postgres "host=localhost port=5432 user=booking_app password=X4pV7_qM9%tN1wK6@rG8jM2Z dbname=booking sslmode=disable" up
 ```
 
 ### 4. Khởi Chạy Service
@@ -125,8 +123,6 @@ goose -dir migration postgres "host=localhost port=5432 user=booking_app passwor
 # Sử dụng Make
 make run
 
-# Hoặc trực tiếp
-go run main.go
 ```
 
 Service sẽ chạy tại `http://localhost:8080`
@@ -143,6 +139,14 @@ Authorization: Bearer <your-jwt-token>
 
 ### Sample Tokens (cho testing)
 
-**Admin Token:**
+####  Admin Token
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSb2xlIjoiYWRtaW4iLCJUb2tlbklEIjoiMWQ4Nzg3YTAtMGM1Ny00NjJlLWI0NDktYTFkYzllNmMxOTE1IiwiZXhwIjoxNzU3MzQ5NTk4fQ.lepMymwRKvh1nnpJVohlxTc7RGNeAhPDqG4TbtYTJlA
+```
+
+####  User Token
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSb2xlIjoidXNlciIsIlRva2VuSUQiOiI5ZTJjMjg2Yy00NmY5LTRlZWItODY3Yi1iYzExZDQxMDVkOWQiLCJleHAiOjE3NTczNDk1NDh9.pCja60jkTPWE5NxxvUQPHyatt_OeMe5rkCahFTcoMeU
+```
 
 

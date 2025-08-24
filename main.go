@@ -7,6 +7,6 @@ import (
 )
 
 func main() {
-	accessToken, _, _ := utils.GenerateTokens("user", []byte("Ym9va2luZy10aWNrZXQ="), time.Hour*24, time.Hour*24*30)
+	accessToken, _, _ := utils.GenerateTokens("admin", []byte("Ym9va2luZy10aWNrZXQ="), time.Hour*24*15, time.Hour*24*30)
 	fmt.Println(accessToken)
 }
