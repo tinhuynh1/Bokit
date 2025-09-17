@@ -1,9 +1,9 @@
 package middleware
 
 import (
-	"booking-svc/internal/common/response"
 	"log"
 	"net/http"
+	"quiz-svc/internal/common/response"
 
 	"github.com/gin-gonic/gin"
 )

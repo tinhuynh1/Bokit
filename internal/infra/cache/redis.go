@@ -1,9 +1,9 @@
 package cache
 
 import (
-	"booking-svc/config"
 	"context"
 	"encoding/base64"
+	"quiz-svc/config"
 
 	"github.com/redis/go-redis/v9"
 )

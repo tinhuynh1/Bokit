@@ -15,6 +15,12 @@ database:
     max_open_conns: 50
     max_idle_conns: 10
     conn_max_lifetime: "15m"
+  mongodb:
+    host: "uat-mongo.example.com"
+    port: 27017
+    user: "uat_user"
+    password: "uat_password"
+    dbname: "authdb_uat"
 
 redis:
   host: "uat-redis.example.com"

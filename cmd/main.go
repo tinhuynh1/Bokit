@@ -1,8 +1,8 @@
 package main
 
 import (
-	"booking-svc/internal/bootstrap"
 	"log"
+	"quiz-svc/internal/bootstrap"
 )
 
 func main() {

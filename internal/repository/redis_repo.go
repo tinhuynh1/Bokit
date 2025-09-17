@@ -1,8 +1,8 @@
 package repository
 
 import (
-	"booking-svc/config"
 	"context"
+	"quiz-svc/config"
 	"time"
 
 	"github.com/redis/go-redis/v9"

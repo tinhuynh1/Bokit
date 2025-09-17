@@ -31,6 +31,7 @@ type JWTConfig struct {
 // DatabaseConfig holds database configuration
 type DatabaseConfig struct {
 	Postgres PostgresConfig `mapstructure:"postgres"`
+	MongoDB  MongoDBConfig  `mapstructure:"mongodb"`
 }
 
 // PostgresConfig holds PostgreSQL-specific configuration
@@ -54,6 +55,14 @@ type RedisConfig struct {
 	DB           int    `mapstructure:"db"`
 	PoolSize     int    `mapstructure:"pool_size"`
 	MinIdleConns int    `mapstructure:"min_idle_conns"`
+}
+
+type MongoDBConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"password"`
+	DBName   string `mapstructure:"dbname"`
 }
 
 type NATSConfig struct {

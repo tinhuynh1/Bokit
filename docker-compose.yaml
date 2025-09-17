@@ -1,35 +1,18 @@
-version: '3.9'
+version: '3.7'
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: booking-postgres
+  mongodb:
+    image: mongo:6.0
+    container_name: mongodb_container
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: booking_app
-      POSTGRES_PASSWORD: "X4pV7_qM9%tN1wK6@rG8jM2Z"
-      POSTGRES_DB: booking
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: StrongPass!123
+      MONGO_INITDB_DATABASE: quizdb
     ports:
-      - "5432:5432"
+      - "27017:27017"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-    container_name: booking-redis
-    ports:
-      - "6379:6379"
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "StrongPass!123"]
-    volumes:
-      - redisdata:/data
-
-  nats:
-    image: nats:2.9-alpine
-    container_name: booking-nats
-    ports:
-      - "4222:4222"
-      - "8222:8222"
-    command: ["-js", "-m", "8222"]
+      - ./mongo-data:/data/db
 
 volumes:
-  pgdata:
-  redisdata:
+  mongo-data:

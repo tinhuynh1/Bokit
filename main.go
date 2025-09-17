@@ -1,8 +1,8 @@
 package main
 
 import (
-	"booking-svc/pkg/utils"
 	"fmt"
+	"quiz-svc/pkg/utils"
 	"time"
 )
 

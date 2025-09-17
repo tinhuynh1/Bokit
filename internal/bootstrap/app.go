@@ -1,18 +1,16 @@
 package bootstrap
 
 import (
-	"booking-svc/config"
-	"booking-svc/internal/handler"
-	"booking-svc/internal/infra/cache"
-	"booking-svc/internal/infra/database"
-	"booking-svc/internal/infra/message_broker"
-	"booking-svc/internal/job"
-	"booking-svc/internal/repository"
-	"booking-svc/internal/router"
-	"booking-svc/internal/service/event"
-	"booking-svc/internal/service/payment"
-	"booking-svc/pkg/logger"
 	"fmt"
+	"quiz-svc/config"
+	"quiz-svc/internal/handler"
+	"quiz-svc/internal/infra/cache"
+	"quiz-svc/internal/infra/database"
+	"quiz-svc/internal/infra/message_broker"
+	"quiz-svc/internal/repository"
+	"quiz-svc/internal/router"
+	"quiz-svc/internal/service"
+	"quiz-svc/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
@@ -32,56 +30,37 @@ func NewApp() (*App, error) {
 
 	logger.Init()
 
-	db, err := database.NewPostgres(&cfg.Database.Postgres)
+	db, err := database.NewMongoDB(&cfg.Database.MongoDB)
 	if err != nil {
-		logger.L.Error("failed to connect to postgres", zap.Error(err))
+		logger.L.Error("failed to connect to mongodb", zap.Error(err))
 		return nil, err
 	}
 
-	rdb, err := cache.NewRedis(&cfg.Redis)
+	quizRepo := repository.NewQuizCollection(db)
+
+	_, err = cache.NewRedis(&cfg.Redis)
 	if err != nil {
 		logger.L.Error("failed to connect to redis", zap.Error(err))
 		return nil, err
 	}
 
-	eventRepo := repository.NewEventRepo(db, rdb)
-	bookingRepo := repository.NewTicketBookingRepo(db, rdb)
+	// Initialize services
+	quizSvc := service.NewQuizService(logger.L, quizRepo)
+	sessionSvc := service.NewSessionService()
+	netSvc := service.NewConnectionService(sessionSvc)
 
-	// Initialize NATS Publisher
-	natsPublisher, err := message_broker.NewPublisher(cfg.NATS.Brokers[0])
-	if err != nil {
-		logger.L.Error("failed to create nats publisher", zap.Error(err))
-		return nil, err
-	}
+	// Initialize handlers
+	quizHandler := handler.NewQuizHandler(quizSvc, logger.L)
+	sessionHandler := handler.NewSessionHandler(sessionSvc, quizSvc, logger.L)
+	wsHandler := handler.NewWSHandler(netSvc, logger.L)
 
-	natsConsumer, err := message_broker.NewConsumer(cfg.NATS.Brokers[0])
-	if err != nil {
-		logger.L.Error("failed to create nats consumer", zap.Error(err))
-		return nil, err
-	}
-
-	// Update EventService to use publisher
-	eventSvc := event.NewEventService(logger.L, eventRepo, bookingRepo)
-	paymentSvc := payment.NewPaymentService(logger.L, bookingRepo, natsPublisher, natsConsumer)
-
-	//event handler
-	eventHandler := handler.NewEventHandler(eventSvc, logger.L)
-	paymentHandler := handler.NewPaymentHandler(eventSvc, paymentSvc, logger.L)
-
-	//cron job
-	cronJob := job.NewCancelBookingJob(eventSvc, logger.L)
-	cronJob.Run()
-
-	// // Setup Gin
+	// Setup Gin
 	engine := gin.New()
-	// engine.Use(middleware.TracingMiddleware("booking-svc"))
-	// //engine.Use(middleware.LoggingMiddleware()) // custom structured logging
 	engine.Use(gin.Recovery())
-	engine.Use(otelgin.Middleware("booking-svc"))
+	engine.Use(otelgin.Middleware("quiz-svc"))
 
-	router.SetupRoutes(engine, eventHandler, paymentHandler)
+	router.SetupRoutes(engine, quizHandler, sessionHandler, wsHandler)
 
-	go paymentSvc.StartPaymentConsumer()
 	return &App{
 		engine: engine,
 		cfg:    cfg,

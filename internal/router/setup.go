@@ -1,29 +1,38 @@
 package router
 
 import (
-	"booking-svc/internal/handler"
-	"booking-svc/internal/middleware"
+	"quiz-svc/internal/handler"
 
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRoutes(r *gin.Engine, eventHandler *handler.EventHandler, paymentHandler *handler.PaymentHandler) {
-	r.Use(middleware.JWTAuthMiddleware())
-	event := r.Group("/events")
+func SetupRoutes(r *gin.Engine,
+	quizHandler *handler.QuizHandler,
+	sessionHandler *handler.SessionHandler,
+	wsHandler *handler.WSHandler) {
+	//r.Use(middleware.JWTAuthMiddleware())
+	v1 := r.Group("api/v1")
+
+	// Quiz endpoints
+	quiz := v1.Group("quizzes")
 	{
-		event.GET("", eventHandler.ListEvent)
-		event.POST("", eventHandler.CreateEvent)
-		event.PATCH("/:event_id", eventHandler.UpdateEvent)
-		event.DELETE("/:event_id", eventHandler.DeleteEvent)
-		event.POST("/:event_id/booking", eventHandler.BookTicket)
-		event.GET("/stats", eventHandler.GetEventStats)
+		quiz.GET("", quizHandler.ListQuiz)
+		quiz.GET("/:id", quizHandler.GetQuizById)
+		quiz.PUT("/:id", quizHandler.UpdateQuiz)
+		quiz.POST("", quizHandler.CreateQuiz)
 	}
 
-	payment := r.Group("/payment")
+	// Session endpoints
+	session := v1.Group("sessions")
 	{
-		payment.POST("/confirm", paymentHandler.ConfirmPayment)
-		payment.POST("/callback", paymentHandler.PaymentCallback)
+		session.GET("/:code", sessionHandler.GetSession)
+		session.POST("", sessionHandler.CreateSession)
+		session.POST("/:code/start", sessionHandler.StartSession)
+		session.GET("/:code/leaderboard", sessionHandler.GetLeaderboard)
 	}
+
+	// WebSocket endpoint
+	r.GET("/ws", wsHandler.Ws)
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})

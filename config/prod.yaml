@@ -15,6 +15,12 @@ database:
     max_open_conns: 100
     max_idle_conns: 25
     conn_max_lifetime: "30m"
+  mongodb:
+    host: "prod-mongo.example.com"
+    port: 27017
+    user: "prod_user"
+    password: "prod_password"
+    dbname: "authdb_prod"
 
 redis:
   host: "prod-redis.example.com"

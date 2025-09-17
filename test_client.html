@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Quiz Client</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .question {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .choice {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .choice:hover {
+            background: #e9ecef;
+        }
+        .leaderboard {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .leaderboard-entry {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧠 Real-Time Quiz Client</h1>
+    
+    <div class="section">
+        <h3>Connection</h3>
+        <input type="text" id="wsUrl" placeholder="WebSocket URL" value="ws://localhost:8080/ws">
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+        <span id="connectionStatus">Disconnected</span>
+    </div>
+
+    <div class="section">
+        <h3>Join Session</h3>
+        <input type="text" id="sessionCode" placeholder="Session Code">
+        <input type="text" id="participantName" placeholder="Your Name">
+        <button onclick="joinSession()">Join Session</button>
+    </div>
+
+    <div class="section">
+        <h3>Quiz Question</h3>
+        <div id="questionContainer" style="display: none;">
+            <div id="questionText"></div>
+            <div id="choices"></div>
+            <button onclick="nextQuestion()">Next Question</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Leaderboard</h3>
+        <div id="leaderboard" class="leaderboard">
+            <div>No data yet</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Log</h3>
+        <div id="log" class="log"></div>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentSession = null;
+        let currentQuestion = null;
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function connect() {
+            const url = document.getElementById('wsUrl').value;
+            ws = new WebSocket(url);
+            
+            ws.onopen = function() {
+                log('Connected to WebSocket');
+                document.getElementById('connectionStatus').textContent = 'Connected';
+                document.getElementById('connectionStatus').style.color = 'green';
+            };
+            
+            ws.onclose = function() {
+                log('Disconnected from WebSocket');
+                document.getElementById('connectionStatus').textContent = 'Disconnected';
+                document.getElementById('connectionStatus').style.color = 'red';
+            };
+            
+            ws.onmessage = function(event) {
+                const data = event.data;
+                log(`Received: ${data}`);
+                
+                if (data.length < 2) return;
+                
+                const packetType = data.charCodeAt(0);
+                const packetData = data.slice(1);
+                
+                try {
+                    const packet = JSON.parse(packetData);
+                    handlePacket(packetType, packet);
+                } catch (e) {
+                    log(`Error parsing packet: ${e.message}`);
+                }
+            };
+            
+            ws.onerror = function(error) {
+                log(`WebSocket error: ${error}`);
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function handlePacket(packetType, packet) {
+            switch (packetType) {
+                case 1: // JoinSessionResponse
+                    if (packet.success) {
+                        currentSession = packet.session;
+                        log(`Joined session: ${packet.message}`);
+                        updateSessionInfo();
+                    } else {
+                        log(`Join failed: ${packet.message}`);
+                    }
+                    break;
+                case 3: // AnswerQuestionResponse
+                    log(`Answer result: Correct=${packet.correct}, Score=${packet.score}`);
+                    break;
+                case 7: // LeaderboardUpdate
+                    updateLeaderboard(packet.leaderboard);
+                    break;
+                case 9: // ErrorResponse
+                    log(`Error: ${packet.message}`);
+                    break;
+                default:
+                    log(`Unknown packet type: ${packetType}`);
+            }
+        }
+
+        function joinSession() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('Not connected to WebSocket');
+                return;
+            }
+
+            const sessionCode = document.getElementById('sessionCode').value;
+            const participantName = document.getElementById('participantName').value;
+            
+            if (!sessionCode || !participantName) {
+                log('Please enter session code and participant name');
+                return;
+            }
+
+            const packet = {
+                session_code: sessionCode,
+                participant_name: participantName
+            };
+
+            sendPacket(1, packet); // PacketJoinSession
+        }
+
+        function sendPacket(packetType, data) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('Not connected to WebSocket');
+                return;
+            }
+
+            const packet = String.fromCharCode(packetType) + JSON.stringify(data);
+            ws.send(packet);
+            log(`Sent packet type ${packetType}: ${JSON.stringify(data)}`);
+        }
+
+        function answerQuestion(questionIndex, choiceId) {
+            const packet = {
+                question_index: questionIndex,
+                answer_choice: choiceId
+            };
+            sendPacket(3, packet); // PacketAnswerQuestion
+        }
+
+        function nextQuestion() {
+            sendPacket(5, {}); // PacketNextQuestion
+        }
+
+        function updateSessionInfo() {
+            if (currentSession) {
+                log(`Session: ${currentSession.code}, Status: ${currentSession.status}, Participants: ${Object.keys(currentSession.participants).length}`);
+            }
+        }
+
+        function updateLeaderboard(leaderboard) {
+            const leaderboardDiv = document.getElementById('leaderboard');
+            if (leaderboard.length === 0) {
+                leaderboardDiv.innerHTML = '<div>No participants yet</div>';
+                return;
+            }
+
+            let html = '<h4>Leaderboard</h4>';
+            leaderboard.forEach(entry => {
+                html += `<div class="leaderboard-entry">
+                    <span>#${entry.rank} ${entry.name}</span>
+                    <span>${entry.score} pts</span>
+                </div>`;
+            });
+            leaderboardDiv.innerHTML = html;
+        }
+
+        // Auto-connect on page load
+        window.onload = function() {
+            log('Page loaded. Click Connect to start.');
+        };
+    </script>
+</body>
+</html>

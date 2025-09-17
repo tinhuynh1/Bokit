@@ -1,10 +1,10 @@
 package middleware
 
 import (
-	"booking-svc/config"
-	"booking-svc/internal/common/response"
-	"booking-svc/pkg/utils"
 	"net/http"
+	"quiz-svc/config"
+	"quiz-svc/internal/common/response"
+	"quiz-svc/pkg/utils"
 	"strings"
 
 	"github.com/gin-gonic/gin"

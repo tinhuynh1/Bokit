@@ -15,6 +15,12 @@ database:
     max_open_conns: 10
     max_idle_conns: 3
     conn_max_lifetime: "10m"
+  mongodb:
+    host: "localhost"
+    port: 27017
+    user: "root"
+    password: "StrongPass!123"
+    dbname: "quizdb"
 
 redis:
   host: "localhost"
@@ -36,8 +42,8 @@ server:
   idle_timeout: "120s"
 
 logging:
-  level: "debug"
-  format: "text"
+  level: "info"
+  format: "console"
   output: "stdout"
 
 auth:

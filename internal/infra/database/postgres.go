@@ -1,10 +1,10 @@
 package database
 
 import (
-	"booking-svc/config"
-	"booking-svc/pkg/logger"
 	"database/sql"
 	"fmt"
+	"quiz-svc/config"
+	"quiz-svc/pkg/logger"
 
 	_ "github.com/lib/pq"
 	"go.uber.org/zap"
