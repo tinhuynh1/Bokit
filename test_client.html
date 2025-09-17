@@ -212,6 +212,9 @@
         const maxReconnectAttempts = 10;
         const WS_URL = 'ws://localhost:8081/ws';
 
+        let answeredCurrent = false;   // đã trả lời câu hiện tại chưa
+        let isSubmitting = false;      // đang gửi answer lên server
+
         function log(message) {
             const logDiv = document.getElementById('log');
             const timestamp = new Date().toLocaleTimeString();
@@ -333,6 +336,11 @@
                     }
                     break;
                 case 3: // AnswerQuestionResponse
+                    // đã hoàn tất trả lời cho câu hiện tại
+                    answeredCurrent = true;
+                    isSubmitting = false;
+
+                    // vẫn giữ log/toast/score như hiện tại của bạn
                     log(`Answer result: Correct=${packet.correct}, Score=${packet.score}`);
                     break;
                 case 5: // NextQuestionResponse
@@ -423,6 +431,8 @@
         function sendPacket(packetType, data) {
             if (!ws || ws.readyState !== WebSocket.OPEN) {
                 log('Not connected to WebSocket');
+                // nếu đang gửi mà mất kết nối thì mở khóa để user thử lại ở câu sau
+                isSubmitting = false;
                 return;
             }
 
@@ -434,37 +444,45 @@
         function showQuestion(packet) {
             currentQuestion = packet;
             timeLeft = packet.time_left;
-            
+
+            // reset trạng thái mỗi câu
+            answeredCurrent = false;
+            isSubmitting = false;
+
             document.getElementById('questionContainer').style.display = 'block';
-            document.getElementById('questionText').innerHTML = `<h3>Question ${packet.question_index + 1}: ${packet.question.name}</h3>`;
-            
-            // Clear previous choices
+            document.getElementById('questionText').innerHTML =
+                `<h3>Question ${packet.question_index + 1}: ${packet.question.name}</h3>`;
+
             const choicesDiv = document.getElementById('choices');
             choicesDiv.innerHTML = '';
-            
-            // Add choices
+
             packet.question.choices.forEach(choice => {
                 const choiceDiv = document.createElement('div');
                 choiceDiv.className = 'choice';
                 choiceDiv.textContent = choice.name;
-                choiceDiv.onclick = () => selectChoice(choice.id);
+                choiceDiv.onclick = (e) => selectChoice(choice.id, e);
+                // mở click cho câu mới
+                choiceDiv.style.pointerEvents = 'auto';
                 choicesDiv.appendChild(choiceDiv);
             });
-            
-            // Start timer
+
             startQuestionTimer();
         }
 
-        function selectChoice(choiceId) {
-            if (!currentQuestion) return;
-            
-            // Remove previous selection
+        function selectChoice(choiceId, ev) {
+            // chặn nếu đã trả lời hoặc đang gửi
+            if (!currentQuestion || answeredCurrent || isSubmitting) return;
+
+            // đánh dấu đang gửi để chặn double-click
+            isSubmitting = true;
+
+            // UI: highlight đáp án đã chọn
             document.querySelectorAll('.choice').forEach(c => c.classList.remove('selected'));
-            
-            // Add selection to clicked choice
-            event.target.classList.add('selected');
-            
-            // Submit answer
+            if (ev && ev.target) ev.target.classList.add('selected');
+
+            // khóa toàn bộ lựa chọn (không cho đổi đáp án)
+            document.querySelectorAll('.choice').forEach(c => c.style.pointerEvents = 'none');
+
             const packet = {
                 question_index: currentQuestion.question_index,
                 answer_choice: choiceId

@@ -9,15 +9,15 @@ const (
 )
 
 type Session struct {
-	Code            string                  `json:"code"`
-	Quiz            *Quiz                   `json:"quiz"`
-	Status          string                  `json:"status"`
-	Participants    map[string]*Participant `json:"participants"`
-	CurrentQuestion int                     `json:"current_question"`
-	StartTime       int64                   `json:"start_time"`
-	EndTime         int64                   `json:"end_time"`
+	Code              string                  `json:"code"`
+	Quiz              *Quiz                   `json:"quiz"`
+	Status            string                  `json:"status"`
+	Participants      map[string]*Participant `json:"participants"`
+	CurrentQuestion   int                     `json:"current_question"`
+	StartTime         int64                   `json:"start_time"`
+	EndTime           int64                   `json:"end_time"`
+	QuestionStartedAt int64                   `json:"-"`
 }
-
 type Participant struct {
 	ID       string          `json:"id"`
 	Name     string          `json:"name"`

@@ -153,13 +153,14 @@ func (s *SessionService) SubmitAnswer(ctx context.Context, code, participantID s
 	if session.Status != domain.SessionStatusActive {
 		return nil, errors.New("session is not active")
 	}
-
-	if questionIndex >= len(session.Quiz.Questions) {
+	if questionIndex != session.CurrentQuestion {
 		return nil, errors.New("invalid question index")
 	}
 
-	// Store answer
-	participant.Answers[questionIndex] = answerChoice
+	// chặn trả lời lại
+	if _, answered := participant.Answers[questionIndex]; answered {
+		return nil, errors.New("question already answered")
+	}
 
 	// Check if answer is correct
 	question := session.Quiz.Questions[questionIndex]
@@ -167,17 +168,46 @@ func (s *SessionService) SubmitAnswer(ctx context.Context, code, participantID s
 	for _, choice := range question.Choices {
 		if choice.Id == answerChoice && choice.Correct {
 			correct = true
-			participant.Score += 10 // 10 points per correct answer
 			break
 		}
 	}
 
-	return &domain.AnswerQuestionResponse{
+	// chấm điểm theo tốc độ (ms)
+	scoreAward := 0
+	if correct {
+		nowMs := time.Now().UnixMilli()
+		startMs := session.QuestionStartedAt
+		if startMs == 0 {
+			startMs = nowMs
+		}
+		elapsedMs := nowMs - startMs
+		durationMs := int64(question.Time) * 1000
+
+		if elapsedMs < 0 {
+			elapsedMs = 0
+		}
+		if elapsedMs > durationMs {
+			elapsedMs = durationMs
+		}
+
+		const maxPts = 1000
+		const minPts = 200
+		remainingMs := durationMs - elapsedMs
+		scoreAward = int(float64(minPts) + float64(maxPts-minPts)*float64(remainingMs)/float64(durationMs))
+
+		participant.Score += scoreAward
+	}
+
+	// lưu câu trả lời
+	participant.Answers[questionIndex] = answerChoice
+
+	resp := &domain.AnswerQuestionResponse{
 		Success:       true,
 		Correct:       correct,
 		Score:         participant.Score,
 		QuestionIndex: questionIndex,
-	}, nil
+	}
+	return resp, nil
 }
 
 func (s *SessionService) NextQuestion(ctx context.Context, code string) error {
@@ -273,6 +303,11 @@ func (s *SessionService) StartQuestionTimer(ctx context.Context, code string) {
 
 	question := session.Quiz.Questions[session.CurrentQuestion]
 
+	// ghi nhận thời điểm bắt đầu câu hỏi (ms) để tính tốc độ
+	s.mutex.Lock()
+	session.QuestionStartedAt = time.Now().UnixMilli()
+	s.mutex.Unlock()
+
 	// Start timer for this question
 	go func() {
 		time.Sleep(time.Duration(question.Time) * time.Second)
@@ -295,10 +330,14 @@ func (s *SessionService) broadcastNextQuestion(ctx context.Context, code string)
 	s.mutex.RLock()
 	session, exists := s.sessions[code]
 	s.mutex.RUnlock()
-
 	if !exists {
 		return
 	}
+
+	// đặt mốc bắt đầu cho câu mới
+	s.mutex.Lock()
+	session.QuestionStartedAt = time.Now().UnixMilli()
+	s.mutex.Unlock()
 
 	question := session.Quiz.Questions[session.CurrentQuestion]
 	response := domain.NextQuestionResponse{
@@ -306,10 +345,7 @@ func (s *SessionService) broadcastNextQuestion(ctx context.Context, code string)
 		Question:      &question,
 		TimeLeft:      question.Time,
 	}
-
-	// This will be called by NetService to broadcast
 	s.broadcastToSession(code, domain.PacketNextQuestion, response)
-
 	// Start timer for next question
 	s.StartQuestionTimer(ctx, code)
 }
