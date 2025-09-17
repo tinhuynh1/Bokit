@@ -264,26 +264,6 @@ func (s *SessionService) GetLeaderboard(ctx context.Context, code string) ([]dom
 	return leaderboard, nil
 }
 
-func (s *SessionService) BroadcastToSession(ctx context.Context, code string, packet interface{}) error {
-	s.mutex.RLock()
-	session, exists := s.sessions[code]
-	s.mutex.RUnlock()
-
-	if !exists {
-		return errors.New("session not found")
-	}
-
-	// Broadcast to all participants
-	for _, participant := range session.Participants {
-		if participant.Conn != nil {
-			// Send packet (implementation depends on NetService)
-			// This will be handled by the WebSocket handler
-		}
-	}
-
-	return nil
-}
-
 // Add these methods to SessionService
 
 func (s *SessionService) StartQuestionTimer(ctx context.Context, code string) {

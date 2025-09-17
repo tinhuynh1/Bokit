@@ -74,6 +74,7 @@ func (h *QuizHandler) CreateQuiz(c *gin.Context) {
 
 	err := h.service.CreateQuiz(ctx, quiz)
 	if err != nil {
+		h.logger.Error("create quiz failed", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, response.ErrorCodeInternalServer, "create_quiz_failed"))
 		return
 	}

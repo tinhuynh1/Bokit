@@ -12,6 +12,8 @@ import (
 	"quiz-svc/internal/service"
 	"quiz-svc/pkg/logger"
 
+	telemetry "quiz-svc/pkg/tracer"
+
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.uber.org/zap"
@@ -27,6 +29,7 @@ func NewApp() (*App, error) {
 	if err != nil {
 		panic(err)
 	}
+	telemetry.InitTracer()
 
 	logger.Init()
 

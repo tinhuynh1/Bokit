@@ -210,7 +210,7 @@
         let pending = [];
         let reconnectAttempts = 0;
         const maxReconnectAttempts = 10;
-        const WS_URL = 'ws://localhost:8081/ws';
+        const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
 
         let answeredCurrent = false;   // đã trả lời câu hiện tại chưa
         let isSubmitting = false;      // đang gửi answer lên server

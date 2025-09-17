@@ -34,6 +34,9 @@ func SetupRoutes(r *gin.Engine,
 	// WebSocket endpoint
 	r.GET("/ws", wsHandler.Ws)
 
+	// Serve 1 file
+	r.StaticFile("/", "./test_client.html")
+
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})

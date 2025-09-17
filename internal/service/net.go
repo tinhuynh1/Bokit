@@ -41,11 +41,11 @@ func (s *NetService) OnIncomingMessage(con *websocket.Conn, mt int, msg []byte) 
 	case domain.PacketAnswerQuestion:
 		s.handleAnswerQuestion(con, packet)
 	case domain.PacketStartQuiz:
-		s.handleStartQuiz(con, packet)
+		s.handleStartQuiz(con)
 	case domain.PacketNextQuestion:
-		s.handleNextQuestion(con, packet)
+		s.handleNextQuestion(con)
 	case domain.PacketLeaveSession:
-		s.handleLeaveSession(con, packet)
+		s.handleLeaveSession(con)
 	default:
 		fmt.Printf("Unknown packet type: %d\n", packetId)
 	}
@@ -134,7 +134,7 @@ func (s *NetService) handleAnswerQuestion(con *websocket.Conn, data []byte) {
 	s.broadcastLeaderboardUpdate(info.SessionCode)
 }
 
-func (s *NetService) handleStartQuiz(con *websocket.Conn, data []byte) {
+func (s *NetService) handleStartQuiz(con *websocket.Conn) {
 	// Get connection info
 	info, exists := s.connectionManager.GetConnectionInfo(con)
 	if !exists {
@@ -181,7 +181,7 @@ func (s *NetService) startFirstQuestion(sessionCode string) {
 	s.sessionService.StartQuestionTimer(context.Background(), sessionCode)
 }
 
-func (s *NetService) handleNextQuestion(con *websocket.Conn, data []byte) {
+func (s *NetService) handleNextQuestion(con *websocket.Conn) {
 	// Get connection info
 	info, exists := s.connectionManager.GetConnectionInfo(con)
 	if !exists {
@@ -238,7 +238,7 @@ func (s *NetService) endQuiz(sessionCode string) {
 	s.broadcastToSession(sessionCode, domain.PacketQuizEnded, response)
 }
 
-func (s *NetService) handleLeaveSession(con *websocket.Conn, data []byte) {
+func (s *NetService) handleLeaveSession(con *websocket.Conn) {
 	if info, ok := s.connectionManager.GetConnectionInfo(con); ok {
 		// cập nhật session
 		s.sessionService.LeaveSession(context.Background(), info.SessionCode, info.ParticipantID)
@@ -263,19 +263,6 @@ func (s *NetService) broadcastToSession(sessionCode string, packetType uint8, da
 	for _, conn := range connections {
 		s.sendPacket(conn, packetType, data)
 	}
-}
-
-func (s *NetService) broadcastSessionUpdate(sessionCode string) {
-	session, err := s.sessionService.GetSession(context.Background(), sessionCode)
-	if err != nil {
-		return
-	}
-
-	response := domain.SessionUpdate{
-		Session: session,
-	}
-
-	s.broadcastToSession(sessionCode, domain.PacketSessionUpdate, response)
 }
 
 func (s *NetService) sendPacket(con *websocket.Conn, packetType uint8, data interface{}) {
@@ -307,56 +294,6 @@ func (c *NetService) PacketToBytes(packet interface{}) ([]byte, error) {
 		return nil, err
 	}
 	return bytes, nil
-}
-
-func (c *NetService) packetToPacketId(packet interface{}) (uint8, error) {
-	switch packet.(type) {
-	case *domain.JoinSessionResponse:
-		return domain.PacketJoinSession, nil
-	case *domain.AnswerQuestionResponse:
-		return domain.PacketAnswerQuestion, nil
-	case *domain.StartQuizResponse:
-		return domain.PacketStartQuiz, nil
-	case *domain.NextQuestionResponse:
-		return domain.PacketNextQuestion, nil
-	case *domain.QuizEndedResponse:
-		return domain.PacketQuizEnded, nil
-	case *domain.LeaderboardUpdate:
-		return domain.PacketLeaderboard, nil
-	case *domain.SessionUpdate:
-		return domain.PacketSessionUpdate, nil
-	case *domain.ErrorResponse:
-		return domain.PacketError, nil
-	case *domain.Notification:
-		return domain.PacketNotification, nil
-	default:
-		return 0, fmt.Errorf("unknown packet type")
-	}
-}
-
-func (c *NetService) packetIdToPacket(packetId uint8) interface{} {
-	switch packetId {
-	case domain.PacketJoinSession:
-		return &domain.JoinSessionRequest{}
-	case domain.PacketAnswerQuestion:
-		return &domain.AnswerQuestionRequest{}
-	case domain.PacketStartQuiz:
-		return &domain.StartQuizResponse{}
-	case domain.PacketNextQuestion:
-		return &domain.NextQuestionResponse{}
-	case domain.PacketQuizEnded:
-		return &domain.QuizEndedResponse{}
-	case domain.PacketLeaderboard:
-		return &domain.LeaderboardUpdate{}
-	case domain.PacketSessionUpdate:
-		return &domain.SessionUpdate{}
-	case domain.PacketError:
-		return &domain.ErrorResponse{}
-	case domain.PacketNotification:
-		return &domain.Notification{}
-	default:
-		return nil
-	}
 }
 
 func (s *NetService) broadcastLeaderboardUpdate(sessionCode string) {
