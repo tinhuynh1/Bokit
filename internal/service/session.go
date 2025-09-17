@@ -16,8 +16,9 @@ import (
 )
 
 type SessionService struct {
-	sessions map[string]*domain.Session
-	mutex    sync.RWMutex
+	sessions          map[string]*domain.Session
+	mutex             sync.RWMutex
+	broadcastCallback func(string, uint8, interface{}) // Add this field
 }
 
 func NewSessionService() *SessionService {
@@ -110,17 +111,14 @@ func (s *SessionService) LeaveSession(ctx context.Context, code, participantID s
 func (s *SessionService) StartSession(ctx context.Context, code string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	fmt.Println("Starting session", code)
-	fmt.Println("Sessions", s.sessions)
+
 	session, exists := s.sessions[code]
 	if !exists {
 		return errors.New("session not found")
 	}
-
 	if session.Status != domain.SessionStatusWaiting {
 		return errors.New("session cannot be started")
 	}
-
 	if len(session.Participants) == 0 {
 		return errors.New("no participants in session")
 	}
@@ -128,6 +126,13 @@ func (s *SessionService) StartSession(ctx context.Context, code string) error {
 	session.Status = domain.SessionStatusActive
 	session.CurrentQuestion = 0
 	session.StartTime = time.Now().Unix()
+
+	// ĐÚNG: broadcast SessionUpdate đúng schema + phát câu hỏi đầu tiên
+	go func() {
+		s.broadcastToSession(code, domain.PacketSessionUpdate, domain.SessionUpdate{Session: session})
+		s.broadcastNextQuestion(ctx, code) // gửi PacketNextQuestion + tự start timer
+	}()
+
 	return nil
 }
 
@@ -247,4 +252,102 @@ func (s *SessionService) BroadcastToSession(ctx context.Context, code string, pa
 	}
 
 	return nil
+}
+
+// Add these methods to SessionService
+
+func (s *SessionService) StartQuestionTimer(ctx context.Context, code string) {
+	s.mutex.Lock()
+	session, exists := s.sessions[code]
+	s.mutex.Unlock()
+
+	if !exists || session.Status != domain.SessionStatusActive {
+		return
+	}
+
+	if session.CurrentQuestion >= len(session.Quiz.Questions) {
+		// Quiz ended
+		s.endQuiz(ctx, code)
+		return
+	}
+
+	question := session.Quiz.Questions[session.CurrentQuestion]
+
+	// Start timer for this question
+	go func() {
+		time.Sleep(time.Duration(question.Time) * time.Second)
+
+		// Auto-advance to next question
+		s.mutex.Lock()
+		session.CurrentQuestion++
+		s.mutex.Unlock()
+
+		// Broadcast next question or end quiz
+		if session.CurrentQuestion >= len(session.Quiz.Questions) {
+			s.endQuiz(ctx, code)
+		} else {
+			s.broadcastNextQuestion(ctx, code)
+		}
+	}()
+}
+
+func (s *SessionService) broadcastNextQuestion(ctx context.Context, code string) {
+	s.mutex.RLock()
+	session, exists := s.sessions[code]
+	s.mutex.RUnlock()
+
+	if !exists {
+		return
+	}
+
+	question := session.Quiz.Questions[session.CurrentQuestion]
+	response := domain.NextQuestionResponse{
+		QuestionIndex: session.CurrentQuestion,
+		Question:      &question,
+		TimeLeft:      question.Time,
+	}
+
+	// This will be called by NetService to broadcast
+	s.broadcastToSession(code, domain.PacketNextQuestion, response)
+
+	// Start timer for next question
+	s.StartQuestionTimer(ctx, code)
+}
+
+func (s *SessionService) endQuiz(ctx context.Context, code string) {
+	s.mutex.Lock()
+	session, exists := s.sessions[code]
+	if exists {
+		session.Status = domain.SessionStatusFinished
+		session.EndTime = time.Now().Unix()
+	}
+	s.mutex.Unlock()
+
+	if !exists {
+		return
+	}
+
+	// Get final leaderboard
+	leaderboard, _ := s.GetLeaderboard(ctx, code)
+
+	// Broadcast quiz ended to all participants
+	response := domain.QuizEndedResponse{
+		FinalLeaderboard: leaderboard,
+	}
+
+	s.broadcastToSession(code, domain.PacketQuizEnded, response)
+}
+
+func (s *SessionService) broadcastToSession(code string, packetType uint8, data interface{}) {
+	fmt.Println("Broadcasting to session", code, packetType, data)
+	// This will be implemented to work with NetService
+	// For now, we'll add a callback mechanism
+	if s.broadcastCallback != nil {
+		s.broadcastCallback(code, packetType, data)
+	}
+}
+
+// Add this method
+func (s *SessionService) SetBroadcastCallback(callback func(string, uint8, interface{})) {
+	s.broadcastCallback = callback
 }

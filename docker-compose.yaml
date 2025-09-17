@@ -3,8 +3,7 @@ version: '3.7'
 services:
   mongodb:
     image: mongo:6.0
-    container_name: mongodb_container
-    restart: unless-stopped
+    restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: StrongPass!123
@@ -12,7 +11,13 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - ./mongo-data:/data/db
+      - mongo-data:/data/db
+    networks:
+      - mongo-net
 
 volumes:
   mongo-data:
+
+networks:
+  mongo-net:
+    driver: bridge

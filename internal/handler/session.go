@@ -87,6 +87,13 @@ func (h *SessionHandler) StartSession(c *gin.Context) {
 
 	code := c.Param("code")
 
+	// Remove the JSON binding since we get code from URL parameter
+	// var req StartSessionRequest
+	// if err := c.ShouldBindJSON(&req); err != nil {
+	//     c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, response.ErrorCodeBadRequest, "invalid_request"))
+	//     return
+	// }
+
 	err := h.sessionService.StartSession(ctx, code)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, response.ErrorCodeBadRequest, err.Error()))

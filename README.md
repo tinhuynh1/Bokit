@@ -1,153 +1,184 @@
-# 🎫 Event Booking Service - Hướng Dẫn Sử Dụng & Testing
+# 🧠 Real-Time Quiz System
 
-## 📋 Mục Lục
+A real-time quiz application built with Go, WebSockets, and MongoDB that allows multiple users to participate in live quiz sessions with real-time scoring and leaderboards.
 
-- [Tổng Quan](#-tổng-quan)
-- [Cài Đặt](#-cài-đặt)
-- [Khởi Chạy](#-khởi-chạy)
-- [API Documentation](#-api-documentation)
-- [Testing](#-testing)
-- [Troubleshooting](#-troubleshooting)
+## ✨ Features
 
-## 🎯 Tổng Quan
+- **Real-time Quiz Sessions**: Create and join quiz sessions with unique codes
+- **Live Scoring**: Instant score updates as participants answer questions
+- **Real-time Leaderboard**: Live ranking updates for all participants
+- **WebSocket Communication**: Low-latency real-time updates
+- **Concurrent Safety**: Thread-safe operations with mutex locks
+- **Session Management**: Track session states (waiting, active, finished)
 
-Event Booking Service là một hệ thống quản lý sự kiện và đặt vé được xây dựng bằng Go, cung cấp:
+## 🚀 Quick Start
 
-- **Quản lý sự kiện** (tạo, cập nhật, xóa)
-- **Đặt vé** với kiểm tra số lượng còn lại
-- **Xử lý thanh toán** qua NATS messaging
-- **Thống kê** doanh thu và số vé đã bán
-- **Authentication** JWT với role-based access
-- **Scheduled jobs** tự động hủy booking hết hạn
-
-## 🛠️ Cài Đặt
-
-### Yêu Cầu Hệ Thống
-
-- **Go 1.23+**
-- **Docker & Docker Compose**
-- **Goose** (database migration tool)
-
-### Cài Đặt Go
-
-**macOS:**
+### 1. Start MongoDB
 ```bash
-brew install go
-go version
+docker compose up -d
 ```
 
-**Ubuntu/Debian:**
+### 2. Run the Application
 ```bash
-wget https://go.dev/dl/go1.23.3.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.23.3.linux-amd64.tar.gz
-echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
-source ~/.bashrc
-go version
+go run cmd/main.go
 ```
 
-**Windows:**
-- Tải từ [https://go.dev/dl/](https://go.dev/dl/)
-- Chạy installer và làm theo hướng dẫn
+### 3. Test with Web Client
+Open `test_client.html` in your browser to test the WebSocket functionality.
 
-### Cài Đặt Docker
+## 📡 API Endpoints
 
-**macOS:**
+### Quiz Management
+- `GET /api/v1/quizzes` - List all quizzes
+- `GET /api/v1/quizzes/:id` - Get quiz by ID
+- `POST /api/v1/quizzes` - Create new quiz
+- `PUT /api/v1/quizzes/:id` - Update quiz
+
+### Session Management
+- `POST /api/v1/sessions` - Create new session
+- `GET /api/v1/sessions/:code` - Get session info
+- `POST /api/v1/sessions/:code/start` - Start session
+- `GET /api/v1/sessions/:code/leaderboard` - Get leaderboard
+
+### WebSocket
+- `GET /ws` - WebSocket endpoint for real-time communication
+
+## 🔌 WebSocket Protocol
+
+The system uses a custom packet-based protocol:
+
+### Packet Types
+- `1` - Join Session
+- `2` - Leave Session  
+- `3` - Answer Question
+- `4` - Start Quiz
+- `5` - Next Question
+- `6` - Quiz Ended
+- `7` - Leaderboard Update
+- `8` - Session Update
+- `9` - Error
+
+### Example Usage
+
+#### Join Session
+```javascript
+const packet = {
+    session_code: "123456",
+    participant_name: "John Doe"
+};
+ws.send(String.fromCharCode(1) + JSON.stringify(packet));
+```
+
+#### Answer Question
+```javascript
+const packet = {
+    question_index: 0,
+    answer_choice: "choice_id_1"
+};
+ws.send(String.fromCharCode(3) + JSON.stringify(packet));
+```
+
+## 🏗️ Architecture
+
+```
+internal/
+├── domain/           # Domain models and packet types
+├── service/          # Business logic and session management
+├── handler/          # HTTP and WebSocket handlers
+├── repository/       # Data access layer
+├── router/           # Route configuration
+└── bootstrap/        # Application initialization
+```
+
+## 🔧 Configuration
+
+The application uses configuration files in the `config/` directory:
+- `config.yaml` - Main configuration
+- `develop.yaml` - Development settings
+- `prod.yaml` - Production settings
+
+## 🧪 Testing
+
+### Using the Test Client
+
+1. Open `test_client.html` in your browser
+2. Click "Connect" to establish WebSocket connection
+3. Enter a session code and your name
+4. Click "Join Session" to participate
+5. Answer questions and see real-time updates
+
+### Manual Testing with curl
+
+#### Create a Quiz
 ```bash
-brew install --cask docker
-open /Applications/Docker.app
-docker --version
+curl -X POST http://localhost:8080/api/v1/quizzes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Sample Quiz",
+    "questions": [
+      {
+        "id": "q1",
+        "name": "What is 2+2?",
+        "time": 30,
+        "choices": [
+          {"id": "a1", "name": "3", "correct": false},
+          {"id": "a2", "name": "4", "correct": true},
+          {"id": "a3", "name": "5", "correct": false}
+        ]
+      }
+    ]
+  }'
 ```
 
-**Ubuntu/Debian:**
+#### Create a Session
 ```bash
-sudo apt-get update
-sudo apt-get install apt-transport-https ca-certificates curl gnupg lsb-release
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt-get update
-sudo apt-get install docker-ce docker-ce-cli containerd.io docker-compose-plugin
-sudo systemctl start docker
-sudo usermod -aG docker $USER
-docker --version
+curl -X POST http://localhost:8080/api/v1/sessions \
+  -H "Content-Type: application/json" \
+  -d '{"quiz_id": "QUIZ_ID_HERE"}'
 ```
 
-### Cài Đặt Goose
+## 🎯 Key Features Implemented
 
-```bash
-# Sử dụng Go
-go install github.com/pressly/goose/v3/cmd/goose@latest
+✅ **User Participation**: Users can join sessions using unique codes  
+✅ **Real-time Score Updates**: Scores update instantly as users answer  
+✅ **Real-time Leaderboard**: Live ranking updates for all participants  
+✅ **Concurrency Handling**: Thread-safe operations with mutex locks  
+✅ **Low Latency**: WebSocket-based real-time communication  
+✅ **Scalable Design**: Clean architecture supporting multiple users  
 
-# Hoặc macOS
-brew install goose
+## 🔒 Security Notes
 
-# Kiểm tra
-goose --version
+- WebSocket connections allow all origins (configure `CheckOrigin` for production)
+- No authentication implemented (add JWT middleware for production)
+- Session data stored in memory (add persistence for production)
+
+## 🚀 Production Considerations
+
+1. **Authentication**: Add JWT-based authentication
+2. **Persistence**: Store sessions in Redis or database
+3. **Rate Limiting**: Implement rate limiting for WebSocket connections
+4. **Monitoring**: Add metrics and health checks
+5. **Scaling**: Consider horizontal scaling with message queues
+6. **Security**: Implement proper CORS and origin checking
+
+## 📝 Example Quiz Data
+
+```json
+{
+  "name": "General Knowledge Quiz",
+  "questions": [
+    {
+      "id": "q1",
+      "name": "What is the capital of France?",
+      "time": 30,
+      "choices": [
+        {"id": "a1", "name": "London", "correct": false},
+        {"id": "a2", "name": "Paris", "correct": true},
+        {"id": "a3", "name": "Berlin", "correct": false}
+      ]
+    }
+  ]
+}
 ```
 
-## 🚀 Khởi Chạy
-
-### 1. Clone Repository
-
-```bash
-git clone https://github.com/tinhuynh1/Bokit.git
-cd Bokit
-```
-
-### 2. Khởi Động Dependencies
-
-```bash
-# Khởi động tất cả services
-docker-compose up -d
-
-# Kiểm tra trạng thái
-docker-compose ps
-```
-
-**Services được khởi động:**
-- **PostgreSQL** (port 5432) - Database chính
-- **Redis** (port 6379) - Cache và distributed lock
-- **NATS** (port 4222) - Message broker
-- **NATS UI** (port 8080) - Giao diện quản lý NATS
-
-### 3. Chạy Database Migrations
-
-```bash
-# Chạy migrations
-make migrate-up
-
-```
-
-### 4. Khởi Chạy Service
-
-```bash
-# Sử dụng Make
-make run
-
-```
-
-Service sẽ chạy tại `http://localhost:8080`
-
-## 📚 API Documentation
-
-### Authentication
-
-Tất cả API endpoints (trừ `/health`) yêu cầu JWT token trong header:
-
-```bash
-Authorization: Bearer <your-jwt-token>
-```
-
-### Sample Tokens (cho testing)
-
-####  Admin Token
-```
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSb2xlIjoiYWRtaW4iLCJUb2tlbklEIjoiMWQ4Nzg3YTAtMGM1Ny00NjJlLWI0NDktYTFkYzllNmMxOTE1IiwiZXhwIjoxNzU3MzQ5NTk4fQ.lepMymwRKvh1nnpJVohlxTc7RGNeAhPDqG4TbtYTJlA
-```
-
-####  User Token
-```
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSb2xlIjoidXNlciIsIlRva2VuSUQiOiI5ZTJjMjg2Yy00NmY5LTRlZWItODY3Yi1iYzExZDQxMDVkOWQiLCJleHAiOjE3NTczNDk1NDh9.pCja60jkTPWE5NxxvUQPHyatt_OeMe5rkCahFTcoMeU
-```
-
-
-
+This system provides a solid foundation for real-time quiz applications with room for extension and customization based on specific requirements.

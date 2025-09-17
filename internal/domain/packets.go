@@ -11,6 +11,7 @@ const (
 	PacketLeaderboard    = 7
 	PacketSessionUpdate  = 8
 	PacketError          = 9
+	PacketNotification   = 10
 )
 
 // Join Session Request
@@ -75,4 +76,10 @@ type SessionUpdate struct {
 type ErrorResponse struct {
 	Error   string `json:"error"`
 	Message string `json:"message"`
+}
+
+type Notification struct {
+	Event           string `json:"event"` // "join" | "leave"
+	ParticipantName string `json:"participant_name"`
+	Participants    int    `json:"participants"` // current participants count
 }
