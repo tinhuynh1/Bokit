@@ -13,8 +13,9 @@ import (
 )
 
 type QuizHandler struct {
-	service *service.QuizService
-	logger  *zap.Logger
+	service      *service.QuizService
+	eventService *service.EventService
+	logger       *zap.Logger
 }
 
 func NewQuizHandler(service *service.QuizService, logger *zap.Logger) *QuizHandler {

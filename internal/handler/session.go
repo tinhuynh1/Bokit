@@ -49,73 +49,66 @@ func (h *SessionHandler) CreateSession(c *gin.Context) {
 	}
 
 	// Create session with quiz
-	session, err := h.sessionService.CreateSession(ctx, quiz)
+	err = h.sessionService.CreateSession(ctx, quiz)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, response.ErrorCodeInternalServer, "create_session_failed"))
 		return
 	}
 
-	c.JSON(http.StatusOK, response.Success(session, "create_session_success"))
+	c.JSON(http.StatusOK, response.Success(nil, "create_session_success"))
 }
 
-func (h *SessionHandler) GetSession(c *gin.Context) {
-	ctx := c.Request.Context()
-	tracer := otel.Tracer("quiz-svc")
-	_, span := tracer.Start(ctx, "get_session")
-	defer span.End()
-	h.logger.Info("get session request", zap.String("trace_id", span.SpanContext().TraceID().String()))
+// func (h *SessionHandler) GetSession(c *gin.Context) {
+// 	ctx := c.Request.Context()
+// 	tracer := otel.Tracer("quiz-svc")
+// 	_, span := tracer.Start(ctx, "get_session")
+// 	defer span.End()
+// 	h.logger.Info("get session request", zap.String("trace_id", span.SpanContext().TraceID().String()))
 
-	code := c.Param("code")
-	session, err := h.sessionService.GetSession(ctx, code)
-	if err != nil {
-		c.JSON(http.StatusNotFound, response.Error(http.StatusNotFound, response.ErrorCodeNotFound, "session_not_found"))
-		return
-	}
-	c.JSON(http.StatusOK, response.Success(session, "get_session_success"))
-}
+// 	code := c.Param("code")
+// 	session, err := h.sessionService.GetSession(ctx, code)
+// 	if err != nil {
+// 		c.JSON(http.StatusNotFound, response.Error(http.StatusNotFound, response.ErrorCodeNotFound, "session_not_found"))
+// 		return
+// 	}
+// 	c.JSON(http.StatusOK, response.Success(session, "get_session_success"))
+// }
 
 type StartSessionRequest struct {
 	Code string `json:"code" binding:"required"`
 }
 
-func (h *SessionHandler) StartSession(c *gin.Context) {
-	ctx := c.Request.Context()
-	tracer := otel.Tracer("quiz-svc")
-	_, span := tracer.Start(ctx, "start_session")
-	defer span.End()
-	h.logger.Info("start session request", zap.String("trace_id", span.SpanContext().TraceID().String()))
+// func (h *SessionHandler) StartSession(c *gin.Context) {
+// 	ctx := c.Request.Context()
+// 	tracer := otel.Tracer("quiz-svc")
+// 	_, span := tracer.Start(ctx, "start_session")
+// 	defer span.End()
+// 	h.logger.Info("start session request", zap.String("trace_id", span.SpanContext().TraceID().String()))
 
-	code := c.Param("code")
+// 	code := c.Param("code")
 
-	// Remove the JSON binding since we get code from URL parameter
-	// var req StartSessionRequest
-	// if err := c.ShouldBindJSON(&req); err != nil {
-	//     c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, response.ErrorCodeBadRequest, "invalid_request"))
-	//     return
-	// }
+// 	err := h.sessionService.StartSession(ctx, code)
+// 	if err != nil {
+// 		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, response.ErrorCodeBadRequest, err.Error()))
+// 		return
+// 	}
 
-	err := h.sessionService.StartSession(ctx, code)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, response.ErrorCodeBadRequest, err.Error()))
-		return
-	}
+// 	c.JSON(http.StatusOK, response.Success(nil, "start_session_success"))
+// }
 
-	c.JSON(http.StatusOK, response.Success(nil, "start_session_success"))
-}
+// func (h *SessionHandler) GetLeaderboard(c *gin.Context) {
+// 	ctx := c.Request.Context()
+// 	tracer := otel.Tracer("quiz-svc")
+// 	_, span := tracer.Start(ctx, "get_leaderboard")
+// 	defer span.End()
+// 	h.logger.Info("get leaderboard request", zap.String("trace_id", span.SpanContext().TraceID().String()))
 
-func (h *SessionHandler) GetLeaderboard(c *gin.Context) {
-	ctx := c.Request.Context()
-	tracer := otel.Tracer("quiz-svc")
-	_, span := tracer.Start(ctx, "get_leaderboard")
-	defer span.End()
-	h.logger.Info("get leaderboard request", zap.String("trace_id", span.SpanContext().TraceID().String()))
+// 	code := c.Param("code")
+// 	leaderboard, err := h.sessionService.GetLeaderboard(ctx, code)
+// 	if err != nil {
+// 		c.JSON(http.StatusNotFound, response.Error(http.StatusNotFound, response.ErrorCodeNotFound, "session_not_found"))
+// 		return
+// 	}
 
-	code := c.Param("code")
-	leaderboard, err := h.sessionService.GetLeaderboard(ctx, code)
-	if err != nil {
-		c.JSON(http.StatusNotFound, response.Error(http.StatusNotFound, response.ErrorCodeNotFound, "session_not_found"))
-		return
-	}
-
-	c.JSON(http.StatusOK, response.Success(leaderboard, "get_leaderboard_success"))
-}
+// 	c.JSON(http.StatusOK, response.Success(leaderboard, "get_leaderboard_success"))
+// }

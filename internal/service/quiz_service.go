@@ -6,6 +6,7 @@ import (
 
 	"quiz-svc/internal/dto"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 )
 
@@ -53,14 +54,14 @@ func (s *QuizService) CreateQuiz(ctx context.Context, quiz *dto.CreateQuizReques
 	}
 	for i, question := range quiz.Questions {
 		quizDomain.Questions[i] = domain.QuizQuestion{
-			Id:      question.Id,
+			Id:      primitive.NewObjectID(),
 			Name:    question.Name,
 			Time:    question.Time,
 			Choices: make([]domain.QuizChoice, len(question.Choices)),
 		}
 		for j, choice := range question.Choices {
 			quizDomain.Questions[i].Choices[j] = domain.QuizChoice{
-				Id:      choice.Id,
+				Id:      primitive.NewObjectID(),
 				Name:    choice.Name,
 				Correct: choice.Correct,
 			}
@@ -74,7 +75,7 @@ func (s *QuizService) CreateQuiz(ctx context.Context, quiz *dto.CreateQuizReques
 		return err
 	}
 
-	s.logger.Info("✅ Quiz created successfully",
+	s.logger.Info("Quiz created successfully",
 		zap.String("quiz_name", quiz.Name),
 		zap.String("quiz_id", quizDomain.Id.Hex()))
 	return nil

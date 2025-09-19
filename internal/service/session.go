@@ -3,77 +3,74 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/rand"
 	"quiz-svc/internal/domain"
-	"sort"
+	"quiz-svc/pkg/logger"
 	"strconv"
 	"sync"
-	"time"
+
+	"quiz-svc/internal/repository"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 )
 
 type SessionService struct {
-	sessions          map[string]*domain.Session
+	sessions          map[string][]domain.Participant
+	sessionCollection domain.SessionCollection
+	redisRepo         *repository.RedisRepo
 	mutex             sync.RWMutex
-	broadcastCallback func(string, uint8, interface{}) // Add this field
 }
 
-func NewSessionService() *SessionService {
+func NewSessionService(sessionCollection domain.SessionCollection, redisRepo *repository.RedisRepo) *SessionService {
 	return &SessionService{
-		sessions: make(map[string]*domain.Session),
+		sessions:          make(map[string][]domain.Participant),
+		sessionCollection: sessionCollection,
+		redisRepo:         redisRepo,
 	}
 }
 
-func (s *SessionService) CreateSession(ctx context.Context, quiz *domain.Quiz) (*domain.Session, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+func (s *SessionService) CreateSession(ctx context.Context, quiz *domain.Quiz) error {
 
-	session := &domain.Session{
-		Code:            s.generateCode(),
-		Quiz:            quiz,
-		Status:          domain.SessionStatusWaiting,
-		Participants:    make(map[string]*domain.Participant),
-		CurrentQuestion: -1,
-		StartTime:       0,
-		EndTime:         0,
+	sessionCreate := &domain.SessionCreate{
+		Code:   s.generateCode(),
+		QuizId: quiz.Id.Hex(),
+		Status: domain.SessionStatusWaiting,
 	}
 
-	// Ensure unique code
 	for {
-		if _, exists := s.sessions[session.Code]; !exists {
+		session, err := s.sessionCollection.GetSessionByCode(ctx, sessionCreate.Code)
+		if err != nil {
+			return errors.New("failed to get session")
+		}
+		if session == nil {
 			break
 		}
-		session.Code = s.generateCode()
+		sessionCreate.Code = s.generateCode()
 	}
 
-	s.sessions[session.Code] = session
-	fmt.Println("Sessions", s.sessions)
-	return session, nil
+	err := s.sessionCollection.CreateSession(ctx, sessionCreate)
+	if err != nil {
+		return errors.New("failed to create session")
+	}
+	//public message session created
+	return nil
 }
 
 func (s *SessionService) generateCode() string {
 	return strconv.Itoa(100000 + rand.Intn(900000))
 }
 
-func (s *SessionService) GetSession(ctx context.Context, code string) (*domain.Session, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	if session, ok := s.sessions[code]; ok {
-		return session, nil
-	}
-	return nil, errors.New("session not found")
-}
-
 func (s *SessionService) JoinSession(ctx context.Context, code, participantName string, conn *websocket.Conn) (*domain.Participant, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	session, exists := s.sessions[code]
-	if !exists {
+	session, err := s.sessionCollection.GetSessionByCode(ctx, code)
+	if err != nil {
+		return nil, errors.New("failed to get session")
+	}
+	if session == nil {
 		return nil, errors.New("session not found")
 	}
 
@@ -81,289 +78,27 @@ func (s *SessionService) JoinSession(ctx context.Context, code, participantName 
 		return nil, errors.New("session is not accepting new participants")
 	}
 
-	participantID := uuid.New().String()
 	participant := &domain.Participant{
-		ID:       participantID,
-		Name:     participantName,
-		Score:    0,
-		Answers:  make(map[int]string),
-		Conn:     conn,
-		JoinedAt: time.Now().Unix(),
+		ID:      uuid.New().String(),
+		Code:    code,
+		Name:    participantName,
+		Score:   0,
+		Answers: make(map[int]string),
 	}
-
-	session.Participants[participantID] = participant
+	s.sessions[code] = append(s.sessions[code], *participant)
+	err = s.redisRepo.Publish(ctx, "session:participant_joined", participant)
+	if err != nil {
+		return nil, errors.New("failed to publish participant joined event")
+	}
+	logger.L.Info("participant joined session", zap.String("session", code), zap.String("participant", participantName))
 	return participant, nil
 }
 
-func (s *SessionService) LeaveSession(ctx context.Context, code, participantID string) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	session, exists := s.sessions[code]
-	if !exists {
-		return errors.New("session not found")
-	}
-
-	delete(session.Participants, participantID)
-	return nil
-}
-
-func (s *SessionService) StartSession(ctx context.Context, code string) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	session, exists := s.sessions[code]
-	if !exists {
-		return errors.New("session not found")
-	}
-	if session.Status != domain.SessionStatusWaiting {
-		return errors.New("session cannot be started")
-	}
-	if len(session.Participants) == 0 {
-		return errors.New("no participants in session")
-	}
-
-	session.Status = domain.SessionStatusActive
-	session.CurrentQuestion = 0
-	session.StartTime = time.Now().Unix()
-
-	// ĐÚNG: broadcast SessionUpdate đúng schema + phát câu hỏi đầu tiên
-	go func() {
-		s.broadcastToSession(code, domain.PacketSessionUpdate, domain.SessionUpdate{Session: session})
-		s.broadcastNextQuestion(ctx, code) // gửi PacketNextQuestion + tự start timer
-	}()
-
-	return nil
-}
-
-func (s *SessionService) SubmitAnswer(ctx context.Context, code, participantID string, questionIndex int, answerChoice string) (*domain.AnswerQuestionResponse, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	session, exists := s.sessions[code]
-	if !exists {
-		return nil, errors.New("session not found")
-	}
-
-	participant, exists := session.Participants[participantID]
-	if !exists {
-		return nil, errors.New("participant not found")
-	}
-
-	if session.Status != domain.SessionStatusActive {
-		return nil, errors.New("session is not active")
-	}
-	if questionIndex != session.CurrentQuestion {
-		return nil, errors.New("invalid question index")
-	}
-
-	// chặn trả lời lại
-	if _, answered := participant.Answers[questionIndex]; answered {
-		return nil, errors.New("question already answered")
-	}
-
-	// Check if answer is correct
-	question := session.Quiz.Questions[questionIndex]
-	correct := false
-	for _, choice := range question.Choices {
-		if choice.Id == answerChoice && choice.Correct {
-			correct = true
-			break
-		}
-	}
-
-	// chấm điểm theo tốc độ (ms)
-	scoreAward := 0
-	if correct {
-		nowMs := time.Now().UnixMilli()
-		startMs := session.QuestionStartedAt
-		if startMs == 0 {
-			startMs = nowMs
-		}
-		elapsedMs := nowMs - startMs
-		durationMs := int64(question.Time) * 1000
-
-		if elapsedMs < 0 {
-			elapsedMs = 0
-		}
-		if elapsedMs > durationMs {
-			elapsedMs = durationMs
-		}
-
-		const maxPts = 1000
-		const minPts = 200
-		remainingMs := durationMs - elapsedMs
-		scoreAward = int(float64(minPts) + float64(maxPts-minPts)*float64(remainingMs)/float64(durationMs))
-
-		participant.Score += scoreAward
-	}
-
-	// lưu câu trả lời
-	participant.Answers[questionIndex] = answerChoice
-
-	resp := &domain.AnswerQuestionResponse{
-		Success:       true,
-		Correct:       correct,
-		Score:         participant.Score,
-		QuestionIndex: questionIndex,
-	}
-	return resp, nil
-}
-
-func (s *SessionService) NextQuestion(ctx context.Context, code string) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	session, exists := s.sessions[code]
-	if !exists {
-		return errors.New("session not found")
-	}
-
-	if session.Status != domain.SessionStatusActive {
-		return errors.New("session is not active")
-	}
-
-	session.CurrentQuestion++
-	if session.CurrentQuestion >= len(session.Quiz.Questions) {
-		session.Status = domain.SessionStatusFinished
-		session.EndTime = time.Now().Unix()
-	}
-
-	return nil
-}
-
-func (s *SessionService) GetLeaderboard(ctx context.Context, code string) ([]domain.LeaderboardEntry, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	session, exists := s.sessions[code]
-	if !exists {
-		return nil, errors.New("session not found")
-	}
-
-	var participants []*domain.Participant
-	for _, p := range session.Participants {
-		participants = append(participants, p)
-	}
-
-	// Sort by score (descending)
-	sort.Slice(participants, func(i, j int) bool {
-		return participants[i].Score > participants[j].Score
-	})
-
-	var leaderboard []domain.LeaderboardEntry
-	for i, p := range participants {
-		leaderboard = append(leaderboard, domain.LeaderboardEntry{
-			ParticipantID: p.ID,
-			Name:          p.Name,
-			Score:         p.Score,
-			Rank:          i + 1,
-		})
-	}
-
-	return leaderboard, nil
-}
-
-// Add these methods to SessionService
-
-func (s *SessionService) StartQuestionTimer(ctx context.Context, code string) {
-	s.mutex.Lock()
-	session, exists := s.sessions[code]
-	s.mutex.Unlock()
-
-	if !exists || session.Status != domain.SessionStatusActive {
+func (s *SessionService) HandleParticipantJoined(ctx context.Context) {
+	message, err := s.redisRepo.Subscribe(ctx, "session:participant_joined")
+	if err != nil {
+		logger.L.Error("failed to subscribe to participant joined event", zap.Error(err))
 		return
 	}
-
-	if session.CurrentQuestion >= len(session.Quiz.Questions) {
-		// Quiz ended
-		s.endQuiz(ctx, code)
-		return
-	}
-
-	question := session.Quiz.Questions[session.CurrentQuestion]
-
-	// ghi nhận thời điểm bắt đầu câu hỏi (ms) để tính tốc độ
-	s.mutex.Lock()
-	session.QuestionStartedAt = time.Now().UnixMilli()
-	s.mutex.Unlock()
-
-	// Start timer for this question
-	go func() {
-		time.Sleep(time.Duration(question.Time) * time.Second)
-
-		// Auto-advance to next question
-		s.mutex.Lock()
-		session.CurrentQuestion++
-		s.mutex.Unlock()
-
-		// Broadcast next question or end quiz
-		if session.CurrentQuestion >= len(session.Quiz.Questions) {
-			s.endQuiz(ctx, code)
-		} else {
-			s.broadcastNextQuestion(ctx, code)
-		}
-	}()
-}
-
-func (s *SessionService) broadcastNextQuestion(ctx context.Context, code string) {
-	s.mutex.RLock()
-	session, exists := s.sessions[code]
-	s.mutex.RUnlock()
-	if !exists {
-		return
-	}
-
-	// đặt mốc bắt đầu cho câu mới
-	s.mutex.Lock()
-	session.QuestionStartedAt = time.Now().UnixMilli()
-	s.mutex.Unlock()
-
-	question := session.Quiz.Questions[session.CurrentQuestion]
-	response := domain.NextQuestionResponse{
-		QuestionIndex: session.CurrentQuestion,
-		Question:      &question,
-		TimeLeft:      question.Time,
-	}
-	s.broadcastToSession(code, domain.PacketNextQuestion, response)
-	// Start timer for next question
-	s.StartQuestionTimer(ctx, code)
-}
-
-func (s *SessionService) endQuiz(ctx context.Context, code string) {
-	s.mutex.Lock()
-	session, exists := s.sessions[code]
-	if exists {
-		session.Status = domain.SessionStatusFinished
-		session.EndTime = time.Now().Unix()
-	}
-	s.mutex.Unlock()
-
-	if !exists {
-		return
-	}
-
-	// Get final leaderboard
-	leaderboard, _ := s.GetLeaderboard(ctx, code)
-
-	// Broadcast quiz ended to all participants
-	response := domain.QuizEndedResponse{
-		FinalLeaderboard: leaderboard,
-	}
-
-	s.broadcastToSession(code, domain.PacketQuizEnded, response)
-}
-
-func (s *SessionService) broadcastToSession(code string, packetType uint8, data interface{}) {
-	fmt.Println("Broadcasting to session", code, packetType, data)
-	// This will be implemented to work with NetService
-	// For now, we'll add a callback mechanism
-	if s.broadcastCallback != nil {
-		s.broadcastCallback(code, packetType, data)
-	}
-}
-
-// Add this method
-func (s *SessionService) SetBroadcastCallback(callback func(string, uint8, interface{})) {
-	s.broadcastCallback = callback
+	logger.L.Info("participant joined session", zap.String("message", message))
 }

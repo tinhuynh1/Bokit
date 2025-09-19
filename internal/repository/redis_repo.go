@@ -2,8 +2,8 @@ package repository
 
 import (
 	"context"
-	"quiz-svc/config"
-	"time"
+	"encoding/json"
+	"fmt"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -16,15 +16,34 @@ func NewRedisRepo(c *redis.Client) *RedisRepo {
 	return &RedisRepo{client: c}
 }
 
-func (r *RedisRepo) StoreToken(ctx context.Context, tokenID string, ttl time.Duration) error {
-	return r.client.Set(ctx, config.RedisTokenPrefix+tokenID, "valid", ttl).Err()
+func (r *RedisRepo) Publish(ctx context.Context, channel string, event interface{}) error {
+	eventData, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("failed to marshal event: %w", err)
+	}
+
+	err = r.client.Publish(ctx, channel, eventData).Err()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (r *RedisRepo) IsTokenValid(ctx context.Context, tokenID string) bool {
-	val, err := r.client.Get(ctx, config.RedisTokenPrefix+tokenID).Result()
-	return err == nil && val == "valid"
-}
+func (r *RedisRepo) Subscribe(ctx context.Context, channel string) (message string, err error) {
+	pubsub := r.client.Subscribe(ctx, channel)
+	defer pubsub.Close()
 
-func (r *RedisRepo) DeleteToken(ctx context.Context, tokenID string) error {
-	return r.client.Del(ctx, config.RedisTokenPrefix+tokenID).Err()
+	ch := pubsub.Channel()
+
+	for {
+		select {
+		case msg := <-ch:
+			if msg != nil {
+				return msg.Payload, nil
+			}
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
+	}
 }

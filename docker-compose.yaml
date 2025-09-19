@@ -12,12 +12,23 @@ services:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
-    networks:
-      - mongo-net
 
+  redis:
+    image: redis:7-alpine
+    container_name: quiz-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "StrongPass!123"]
+    volumes:
+      - redisdata:/data
+
+  nats:
+    image: nats:2.9-alpine
+    container_name: booking-nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: ["-js", "-m", "8222"]
 volumes:
+  redisdata:
   mongo-data:
-
-networks:
-  mongo-net:
-    driver: bridge

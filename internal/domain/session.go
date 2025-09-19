@@ -8,6 +8,12 @@ const (
 	SessionStatusFinished = "finished"
 )
 
+type SessionCreate struct {
+	Code   string `json:"code"`
+	QuizId string `json:"quiz_id"`
+	Status string `json:"status"`
+}
+
 type Session struct {
 	Code              string                  `json:"code"`
 	Quiz              *Quiz                   `json:"quiz"`
@@ -20,6 +26,7 @@ type Session struct {
 }
 type Participant struct {
 	ID       string          `json:"id"`
+	Code     string          `json:"code"`
 	Name     string          `json:"name"`
 	Score    int             `json:"score"`
 	Answers  map[int]string  `json:"answers"` // question index -> answer choice id

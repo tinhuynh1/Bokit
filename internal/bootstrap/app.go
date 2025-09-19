@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"fmt"
 	"quiz-svc/config"
 	"quiz-svc/internal/handler"
@@ -12,10 +13,7 @@ import (
 	"quiz-svc/internal/service"
 	"quiz-svc/pkg/logger"
 
-	telemetry "quiz-svc/pkg/tracer"
-
 	"github.com/gin-gonic/gin"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.uber.org/zap"
 )
 
@@ -29,7 +27,7 @@ func NewApp() (*App, error) {
 	if err != nil {
 		panic(err)
 	}
-	telemetry.InitTracer()
+	//telemetry.InitTracer()
 
 	logger.Init()
 
@@ -40,16 +38,21 @@ func NewApp() (*App, error) {
 	}
 
 	quizRepo := repository.NewQuizCollection(db)
+	sessionRepo := repository.NewSessionCollection(db)
 
-	_, err = cache.NewRedis(&cfg.Redis)
+	redisClient, err := cache.NewRedis(&cfg.Redis)
 	if err != nil {
 		logger.L.Error("failed to connect to redis", zap.Error(err))
 		return nil, err
 	}
 
+	// Initialize Redis repository
+	redisRepo := repository.NewRedisRepo(redisClient)
+
 	// Initialize services
+
 	quizSvc := service.NewQuizService(logger.L, quizRepo)
-	sessionSvc := service.NewSessionService()
+	sessionSvc := service.NewSessionService(sessionRepo, redisRepo)
 	netSvc := service.NewConnectionService(sessionSvc)
 
 	// Initialize handlers
@@ -60,10 +63,17 @@ func NewApp() (*App, error) {
 	// Setup Gin
 	engine := gin.New()
 	engine.Use(gin.Recovery())
-	engine.Use(otelgin.Middleware("quiz-svc"))
+	//	engine.Use(otelgin.Middleware("quiz-svc"))
 
 	router.SetupRoutes(engine, quizHandler, sessionHandler, wsHandler)
 
+	go func() {
+		for {
+			fmt.Println("HandleParticipantJoined")
+			sessionSvc.HandleParticipantJoined(context.Background())
+			fmt.Println("HandleParticipantJoined done")
+		}
+	}()
 	return &App{
 		engine: engine,
 		cfg:    cfg,

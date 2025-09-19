@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Quiz Client</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .question {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .choice {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .choice:hover {
+            background: #e9ecef;
+        }
+        .leaderboard {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .leaderboard-entry {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
+        }
+        .timer {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ff4444;
+            text-align: center;
+            margin: 10px 0;
+        }
+        .question-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .choice {
+            margin: 10px 0;
+            padding: 15px;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .choice:hover {
+            border-color: #007bff;
+            background: #e3f2fd;
+        }
+        .choice.selected {
+            border-color: #007bff;
+            background: #e3f2fd;
+        }
+        .leaderboard {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            text-align: center;
+        }
+        .status.waiting {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status.active {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.finished {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        /* Screen management */
+        .screen {
+            display: none;
+        }
+        .screen.active {
+            display: block;
+        }
+        
+        .join-screen {
+            text-align: center;
+        }
+        
+        .game-screen {
+            /* Game screen styles */
+        }
+        
+        .host-controls {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧠 Real-Time Quiz Client</h1>
+    
+    <!-- Join Screen -->
+    <div id="joinScreen" class="screen active">
+        <div class="section join-screen">
+            <h2>Join Quiz Session</h2>
+            
+            <div style="margin-top: 20px;">
+                <input type="text" id="sessionCode" placeholder="Enter Session Code" style="width: 200px;">
+                <br>
+                <input type="text" id="participantName" placeholder="Enter Your Name" style="width: 200px;">
+                <br>
+                <button id="joinBtn" onclick="joinSession()" style="margin-top: 10px; padding: 15px 30px; font-size: 16px;">Join Session</button>
+            </div>
+            
+            <div id="joinError" style="color: red; margin-top: 10px;"></div>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="gameScreen" class="screen">
+        <div class="section">
+            <h3>Session Info</h3>
+            <div id="sessionStatus" class="status waiting">Waiting to join...</div>
+            <button onclick="leaveSession()" style="background: #dc3545;">Leave Session</button>
+        </div>
+
+        <div class="section">
+            <h3>Quiz Question</h3>
+            <div id="questionContainer" style="display: none;">
+                <div id="timer" class="timer">--</div>
+                <div id="questionText"></div>
+                <div id="choices"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Leaderboard</h3>
+            <div id="leaderboard" class="leaderboard">
+                <div>No data yet</div>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="toast" style="position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;"></div>
+
+    <script>
+        let ws = null;
+        let currentSession = null;
+        let currentQuestion = null;
+        let questionTimer = null;
+        let timeLeft = 0;
+        let isHost = false;
+        let isConnecting = false;
+        let pending = [];
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 10;
+        const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
+
+        let answeredCurrent = false;   // đã trả lời câu hiện tại chưa
+        let isSubmitting = false;      // đang gửi answer lên server
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            if (!logDiv) {
+                console.log(`[${timestamp}] ${message}`);
+                return;
+            }
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            const el = document.getElementById('log');
+            if (el) el.innerHTML = '';
+        }
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function setJoinEnabled(enabled) {
+            const btn = document.getElementById('joinBtn');
+            if (btn) btn.disabled = !enabled;
+        }
+
+        function connect() {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                return;
+            }
+            isConnecting = true;
+            setJoinEnabled(false);
+
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = function() {
+                isConnecting = false;
+                reconnectAttempts = 0;
+                setJoinEnabled(true);
+                // flush pending actions
+                const actions = pending.slice();
+                pending = [];
+                actions.forEach(fn => { try { fn(); } catch(_){} });
+                log('Connected to WebSocket');
+            };
+
+            ws.onclose = function() {
+                setJoinEnabled(false);
+                log('Disconnected from WebSocket');
+                // auto-reconnect with backoff
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+                    reconnectAttempts++;
+                    setTimeout(connect, delay);
+                }
+            };
+
+            ws.onmessage = function(event) {
+                const data = event.data;
+                if (data.length < 2) return;
+                const packetType = data.charCodeAt(0);
+                const packetData = data.slice(1);
+                try {
+                    const packet = JSON.parse(packetData);
+                    handlePacket(packetType, packet);
+                } catch (e) {
+                    log(`Error parsing packet: ${e.message}`);
+                }
+            };
+
+            ws.onerror = function(error) {
+                log(`WebSocket error: ${error}`);
+            };
+        }
+
+        function ensureConnected(cb) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                cb();
+            } else {
+                pending.push(cb);
+                if (!isConnecting) connect();
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function handlePacket(packetType, packet) {
+            switch (packetType) {
+                case 1: // JoinSessionResponse
+                    if (packet.success) {
+                        currentSession = packet.session;
+                        log(`Joined session: ${packet.message}`);
+                        updateSessionStatus();
+                        
+                        // Check if this is the first participant (host)
+                        const participantCount = Object.keys(currentSession.participants).length;
+                        isHost = participantCount === 1;
+                        
+                        // Switch to game screen
+                        showScreen('gameScreen');
+                        
+                        // Show host controls if this is the host
+                        if (isHost) {
+                            const hc = document.getElementById('hostControls');
+                            if (hc) hc.style.display = 'block';
+                        }
+                        
+                    } else {
+                        document.getElementById('joinError').textContent = packet.message;
+                        showToast(packet.message, 'warning');
+                        log(`Join failed: ${packet.message}`);
+                    }
+                    break;
+                case 3: // AnswerQuestionResponse
+                    // đã hoàn tất trả lời cho câu hiện tại
+                    answeredCurrent = true;
+                    isSubmitting = false;
+
+                    // vẫn giữ log/toast/score như hiện tại của bạn
+                    log(`Answer result: Correct=${packet.correct}, Score=${packet.score}`);
+                    break;
+                case 5: // NextQuestionResponse
+                    showQuestion(packet);
+                    break;
+                case 6: // QuizEndedResponse
+                    showQuizEnded(packet);
+                    break;
+                case 7: // LeaderboardUpdate
+                    updateLeaderboard(packet.leaderboard);
+                    break;
+                case 8: // SessionUpdate
+                    currentSession = packet.session;
+                    updateSessionStatus();
+                    break;
+                case 9: // ErrorResponse
+                    const errMsg = packet.message || 'Unable to join session';
+                    const joinErr = document.getElementById('joinError');
+                    if (joinErr) joinErr.textContent = errMsg;
+                    showToast(errMsg, 'warning');
+                    log(`Error: ${errMsg}`);
+                    break;
+                case 10: // PacketNotification
+                    const action = packet.event === 'join' ? 'joined' : 'left';
+                    const msg = `${packet.participant_name} ${action}. Participants: ${packet.participants}`;
+                    // join -> xanh lá; leave -> vàng
+                    showToast(msg, packet.event === 'join' ? 'success' : 'warning');
+                    break;
+                default:
+                    log(`Unknown packet type: ${packetType}`);
+            }
+        }
+
+        function joinSession() {
+            const sessionCode = document.getElementById('sessionCode').value;
+            const participantName = document.getElementById('participantName').value;
+
+            if (!sessionCode || !participantName) {
+                document.getElementById('joinError').textContent = 'Please enter session code and participant name';
+                return;
+            }
+            document.getElementById('joinError').textContent = '';
+
+            ensureConnected(() => {
+                const packet = { session_code: sessionCode, participant_name: participantName };
+                sendPacket(1, packet); // PacketJoinSession
+            });
+        }
+
+        function leaveSession() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                // Send leave session packet
+                sendPacket(2, {}); // PacketLeaveSession
+            }
+            
+            // Reset state
+            currentSession = null;
+            currentQuestion = null;
+            isHost = false;
+            
+            // Clear inputs
+            document.getElementById('sessionCode').value = '';
+            document.getElementById('participantName').value = '';
+            document.getElementById('joinError').textContent = '';
+            
+            // Switch back to join screen
+            showScreen('joinScreen');
+        }
+
+        function startQuiz() {
+            if (!isHost) return;
+            
+            // Send start quiz packet
+            sendPacket(4, {}); // PacketStartQuiz
+            const startBtn = document.getElementById('startQuizBtn');
+            if (startBtn) startBtn.style.display = 'none';
+            const nextBtn = document.getElementById('nextQuestionBtn');
+            if (nextBtn) nextBtn.style.display = 'inline-block';
+        }
+
+        function nextQuestion() {
+            if (!isHost) return;
+            
+            // Send next question packet
+            sendPacket(5, {}); // PacketNextQuestion
+        }
+
+        function sendPacket(packetType, data) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('Not connected to WebSocket');
+                // nếu đang gửi mà mất kết nối thì mở khóa để user thử lại ở câu sau
+                isSubmitting = false;
+                return;
+            }
+
+            const packet = String.fromCharCode(packetType) + JSON.stringify(data);
+            ws.send(packet);
+            log(`Sent packet type ${packetType}: ${JSON.stringify(data)}`);
+        }
+
+        function showQuestion(packet) {
+            currentQuestion = packet;
+            timeLeft = packet.time_left;
+
+            // reset trạng thái mỗi câu
+            answeredCurrent = false;
+            isSubmitting = false;
+
+            document.getElementById('questionContainer').style.display = 'block';
+            document.getElementById('questionText').innerHTML =
+                `<h3>Question ${packet.question_index + 1}: ${packet.question.name}</h3>`;
+
+            const choicesDiv = document.getElementById('choices');
+            choicesDiv.innerHTML = '';
+
+            packet.question.choices.forEach(choice => {
+                const choiceDiv = document.createElement('div');
+                choiceDiv.className = 'choice';
+                choiceDiv.textContent = choice.name;
+                choiceDiv.onclick = (e) => selectChoice(choice.id, e);
+                // mở click cho câu mới
+                choiceDiv.style.pointerEvents = 'auto';
+                choicesDiv.appendChild(choiceDiv);
+            });
+
+            startQuestionTimer();
+        }
+
+        function selectChoice(choiceId, ev) {
+            // chặn nếu đã trả lời hoặc đang gửi
+            if (!currentQuestion || answeredCurrent || isSubmitting) return;
+
+            // đánh dấu đang gửi để chặn double-click
+            isSubmitting = true;
+
+            // UI: highlight đáp án đã chọn
+            document.querySelectorAll('.choice').forEach(c => c.classList.remove('selected'));
+            if (ev && ev.target) ev.target.classList.add('selected');
+
+            // khóa toàn bộ lựa chọn (không cho đổi đáp án)
+            document.querySelectorAll('.choice').forEach(c => c.style.pointerEvents = 'none');
+
+            const packet = {
+                question_index: currentQuestion.question_index,
+                answer_choice: choiceId
+            };
+            sendPacket(3, packet); // PacketAnswerQuestion
+        }
+
+        function startQuestionTimer() {
+            if (questionTimer) {
+                clearInterval(questionTimer);
+            }
+            
+            const timerDiv = document.getElementById('timer');
+            timerDiv.textContent = timeLeft;
+            
+            questionTimer = setInterval(() => {
+                timeLeft--;
+                timerDiv.textContent = timeLeft;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(questionTimer);
+                    timerDiv.textContent = 'Time\'s up!';
+                }
+            }, 1000);
+        }
+
+        function showQuizEnded(packet) {
+            document.getElementById('questionContainer').style.display = 'none';
+            document.getElementById('sessionStatus').textContent = 'Quiz Finished!';
+            document.getElementById('sessionStatus').className = 'status finished';
+            
+            log(`Quiz ended! Your score: ${packet.your_score}, Rank: ${packet.your_rank}`);
+            
+            if (questionTimer) {
+                clearInterval(questionTimer);
+            }
+        }
+
+        function updateSessionStatus() {
+            if (!currentSession) return;
+            
+            const statusDiv = document.getElementById('sessionStatus');
+            statusDiv.textContent = `Session: ${currentSession.code} - Status: ${currentSession.status}`;
+            statusDiv.className = `status ${currentSession.status}`;
+        }
+
+        function updateLeaderboard(leaderboard) {
+            const leaderboardDiv = document.getElementById('leaderboard');
+            if (leaderboard.length === 0) {
+                leaderboardDiv.innerHTML = '<div>No participants yet</div>';
+                return;
+            }
+
+            let html = '<h4>Leaderboard</h4>';
+            leaderboard.forEach(entry => {
+                html += `<div class="leaderboard-entry">
+                    <span>#${entry.rank} ${entry.name}</span>
+                    <span>${entry.score} pts</span>
+                </div>`;
+            });
+            leaderboardDiv.innerHTML = html;
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            if (!toast) return;
+            const el = document.createElement('div');
+            el.style.marginTop = '8px';
+            el.style.padding = '10px 16px';
+            el.style.borderRadius = '6px';
+            el.style.color = '#fff';
+            el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            el.style.fontSize = '14px';
+            el.style.background = type === 'success' ? '#28a745' : (type === 'warning' ? '#ffc107' : '#17a2b8');
+            el.textContent = message;
+            toast.appendChild(el);
+            setTimeout(() => {
+                el.style.transition = 'opacity .3s';
+                el.style.opacity = '0';
+                setTimeout(() => el.remove(), 300);
+            }, 2500);
+        }
+
+        // Auto-connect on page load
+        window.onload = function() {
+            setJoinEnabled(false);
+            log('Page loaded. Auto-connecting WebSocket...');
+            connect();
+        };
+    </script>
+</body>
+</html>

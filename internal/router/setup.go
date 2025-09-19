@@ -19,16 +19,16 @@ func SetupRoutes(r *gin.Engine,
 		quiz.GET("", quizHandler.ListQuiz)
 		quiz.GET("/:id", quizHandler.GetQuizById)
 		quiz.PUT("/:id", quizHandler.UpdateQuiz)
-		quiz.POST("", quizHandler.CreateQuiz)
+		quiz.POST("", quizHandler.CreateQuiz) //OK
 	}
 
 	// Session endpoints
 	session := v1.Group("sessions")
 	{
-		session.GET("/:code", sessionHandler.GetSession)
-		session.POST("", sessionHandler.CreateSession)
-		session.POST("/:code/start", sessionHandler.StartSession)
-		session.GET("/:code/leaderboard", sessionHandler.GetLeaderboard)
+		//session.GET("/:code", sessionHandler.GetSession)
+		session.POST("", sessionHandler.CreateSession) //OK
+		//session.POST("/:code/start", sessionHandler.StartSession)
+		//session.GET("/:code/leaderboard", sessionHandler.GetLeaderboard)
 	}
 
 	// WebSocket endpoint
